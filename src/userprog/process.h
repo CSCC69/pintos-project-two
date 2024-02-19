@@ -6,7 +6,7 @@
 struct prog_args {
   char *name;
   char **args;
-  int num_args;
+  int arg_count;
 };
 
 tid_t process_execute (const char *file_name);

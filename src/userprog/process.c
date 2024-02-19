@@ -45,8 +45,8 @@ process_execute (const char *file_name)
   char *token, *save_ptr;
   for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
        token = strtok_r (NULL, " ", &save_ptr)) {
-    prog_args->args[prog_args->num_args] = token;
-    prog_args->num_args++;
+    prog_args->args[prog_args->arg_count] = token;
+    prog_args->arg_count++;
   }
 
   prog_args->name = palloc_get_page(0);
@@ -455,122 +455,51 @@ setup_stack (void **esp, const struct prog_args *prog_args)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         {
-            /**esp = PHYS_BASE;
-            printf("esp: %p\n", *esp);
-            *esp -= 1;
-            printf("esp: %p\n", *esp);
-            memset(*esp, 1, 1);
-            *esp -= 1;
-            printf("esp: %p\n", *esp);
-            memset(*esp, 2, 1);
-            *esp -= 14;
-            printf("esp: %p\n", *esp);
-            memset(*esp, 10, 1);
-            hex_dump((uintptr_t)PHYS_BASE-16, *esp, 16, true);*/
           *esp = PHYS_BASE;
-          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+          int arg_count = prog_args->arg_count;
+          // Arguments, in reverse order
+          for (int i = arg_count - 1; i >= 0; i--) {
             char *argument = prog_args->args[i];
             int arg_len = strlen(argument);
-            printf("%s\n", argument);
-            (*esp) -= sizeof(char) * arg_len + 1;
+            (*esp) -= (arg_len * sizeof(char)) + 1;
             memcpy(*esp, argument, arg_len);
-            /*for (int j = arg_len; j >= 0; j--) {
-              (*esp)-= 1 * sizeof(char);
-              printf("esp: %p\n", *esp);
-              printf("%c, 0x%08x\n", argument[j], argument[j]);
-              memset(*esp, argument[j], 1 * sizeof(char));
-              //memset(*esp, 0xee, 1 * sizeof(char));
-            }*/
-            printf("\n");
           }
-          printf("esp: %p\n", *esp);
-          int alignment = (uint32_t)*esp % 4;
-          printf("align: %d\n", alignment);
+
+          // Word align
+          int alignment = ((uint32_t)*esp) % 4;
           *esp -= alignment * sizeof(uint8_t);
-          memset(*esp, 0xAA, alignment * sizeof(uint8_t)); //TODO: word alignment, write 0
+          memset(*esp, 0, alignment * sizeof(uint8_t));
+
+          // Null sentinel (argv[argc])
           *esp -= sizeof(char*);
-          memset(*esp, 0xBB, 1 * sizeof(char*)); //TODO: null pointer sentinel, write 0
+          memset(*esp, 0, 1 * sizeof(char*)); 
+
+          // Addresses of arguments on stack
           void *arg_pos = PHYS_BASE;
-          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+          for (int i = prog_args->arg_count - 1; i >= 0; i--) {
             char *argument = prog_args->args[i];
             int arg_len = strlen(argument);
             arg_pos -= (arg_len + 1) * sizeof(char);
-            printf("arg %s start: %p\n", argument, arg_pos);
             *esp -= sizeof(char*);
             memcpy(*esp, &arg_pos, sizeof(char*));
-            /*uint8_t* address_bytes = (uint8_t *)&arg_pos;
-            for (int j = 0; j < 4; j++){
-              *esp -= sizeof(char);
-              printf("byte: 0x%08x\n", address_bytes[j]);
-              memset(*esp, address_bytes[j], 1);
-            }*/
-            //*(char**)(*esp) = arg_pos; //TODO: fix store it backwards
           }
+
+          // Address of first argument (argv)
           void *argv = *esp;
           *esp -= sizeof(char**);
           memcpy(*esp, &argv, sizeof(char**));
-          //*(char**)(*esp) = argv; //argv, pointer to last pushed (first) arg, also backwards
+
+          // argc
           *esp -= 1 * sizeof(int);
-          memcpy(*esp, &prog_args->num_args, sizeof(int));
-          //*(int*)(*esp) = prog_args->num_args; //wrong, also backwards. idk how to do it properly. memset only works on chars.
-          //memset(*esp, prog_args->num_args, sizeof(int)); // this sets 4 bytes to the value 2, we want to set 2 as a 4 byte number so cant use memset
+          memcpy(*esp, &arg_count, sizeof(int));
+
+          // Return address (null)
           *esp -= 1 * sizeof(void (*)(void));
-          memset(*esp, 0xCC, sizeof(void (*)(void))); //memset works for 0 since doesnt matter the order
+          memset(*esp, 0, sizeof(void (*)(void)));
+
+          //TODO: remove, for debugging
           hex_dump((uintptr_t)PHYS_BASE-64, *esp - (uint32_t)*esp % 64, 64, true);
-          ASSERT(((uint32_t)*esp) % 4 == 0); //TODO: remove. verifies word alignment.
-          printf("0x%08x\n", PHYS_BASE - *esp);
-
-
-
-
-          // The user program will pop items off the stack by incrementing esp, and will read each letter by incrementing esp by 1 byte.
-          // So the arguments should be placed backwards, and the arguments themselves should be pushed backwards letter by letter (end of word at higher address)
-          //*esp -= 4; // for some reason they start at 0xbffffffc, 4 bytes lower
-          /*int stacksize = 0; //in bytes
-          for (int i = prog_args->num_args - 1; i >= 0; i--) {
-            // Traverse the args array backwards from num_args-1 to 0
-            char *argument = prog_args->args[i];
-            int argument_len = strlen(argument);
-            stacksize += argument_len * sizeof(char);
-            for (int j = argument_len; j >= 0; j--) { //len not len-1 to print the null character
-              //Traverse the argument backwards from len-1 to 0
-              memset(*esp, argument[j], 1); //store the character (1 byte) - takes an int (4 bytes) but casts to unsigned char which is 1 byte
-              *esp -= 1; // move to next byte
-            }
-          }
-          hex_dump((uintptr_t)*esp, *esp, 32, true);*/
-
-
-
-
-      //old 1
-          //memset(*esp, (uint32_t)'a', 1); //1 byte
-          //*esp -= 1;
-          /*int stacksize = 0;
-          for (int i = prog_args->num_args - 1; i >= 0; i--) {
-            char* arg = prog_args->args[i];
-            int len = strlen(arg);
-            stacksize += len;
-            for (int32_t j = len - 1; j >= 0; j--) {
-              //printf("%c",arg[j]);
-              memset(*esp, (uint32_t)arg[j], 1);
-              *esp -= 1;
-            }
-            memset(*esp, 0, 1);
-            (*esp)--;
-            //printf("\n");
-          }
-          hex_dump((uintptr_t)PHYS_BASE - stacksize + (stacksize % 8), *esp, 8, true); //decrease by 1 byte, print 1 byte*/
-      //old 2
-          /**esp -= 4*(prog_args->num_args - 1); //TODO: define 4 as WORD_SIZE (in bytes) somewhere.
-          for (int i = prog_args->num_args - 1; i >= 0; i--) {
-            memset(*esp, (uint32_t)prog_args->args[i], strlen(prog_args->args[i]) * sizeof(char));
-          }
-          int alignment = ((uint32_t)*esp) % 4;
-          memset(*esp, 0, alignment);
-          memset(*esp, 0, 4);
-          ASSERT(((uint32_t)*esp) % 4 == 0); //TODO: remove. verifies word alignment.
-          hex_dump((uintptr_t)PHYS_BASE - 16, *esp, 16, true);*/
+          ASSERT(((uint32_t)*esp) % 4 == 0);
         }
       else
         palloc_free_page (kpage);
