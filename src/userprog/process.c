@@ -2,6 +2,7 @@
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,7 +20,7 @@
 #include "threads/vaddr.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (const struct prog_args *prog_args, void (**eip) (void), void **esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -38,13 +39,21 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  struct prog_args *prog_args = palloc_get_page(0);
+  prog_args->args = palloc_get_page(0);
+
   char *token, *save_ptr;
   for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
-       token = strtok_r (NULL, " ", &save_ptr))
-    printf ("'%s'\n", token);
+       token = strtok_r (NULL, " ", &save_ptr)) {
+    prog_args->args[prog_args->num_args] = token;
+    prog_args->num_args++;
+  }
+
+  prog_args->name = palloc_get_page(0);
+  strlcpy(prog_args->name, prog_args->args[0], PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (prog_args->name, PRI_DEFAULT, start_process, prog_args);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -53,9 +62,9 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *prog_args_)
 {
-  char *file_name = file_name_;
+  struct prog_args *prog_args = prog_args_;
   struct intr_frame if_;
   bool success;
 
@@ -64,10 +73,12 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (prog_args, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (prog_args->name);
+  palloc_free_page(prog_args->args);
+  palloc_free_page(prog_args);
   if (!success) 
     thread_exit ();
 
@@ -93,6 +104,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while(1){}
   return -1;
 }
 
@@ -200,7 +212,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const struct prog_args *prog_args);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -211,7 +223,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const struct prog_args *prog_args, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -227,10 +239,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (prog_args->name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", prog_args->name);
       goto done; 
     }
 
@@ -243,7 +255,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", prog_args->name);
       goto done; 
     }
 
@@ -307,7 +319,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, prog_args))
     goto done;
 
   /* Start address. */
@@ -432,7 +444,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, const struct prog_args *prog_args) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -442,7 +454,124 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        {
+            /**esp = PHYS_BASE;
+            printf("esp: %p\n", *esp);
+            *esp -= 1;
+            printf("esp: %p\n", *esp);
+            memset(*esp, 1, 1);
+            *esp -= 1;
+            printf("esp: %p\n", *esp);
+            memset(*esp, 2, 1);
+            *esp -= 14;
+            printf("esp: %p\n", *esp);
+            memset(*esp, 10, 1);
+            hex_dump((uintptr_t)PHYS_BASE-16, *esp, 16, true);*/
+          *esp = PHYS_BASE;
+          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+            char *argument = prog_args->args[i];
+            int arg_len = strlen(argument);
+            printf("%s\n", argument);
+            (*esp) -= sizeof(char) * arg_len + 1;
+            memcpy(*esp, argument, arg_len);
+            /*for (int j = arg_len; j >= 0; j--) {
+              (*esp)-= 1 * sizeof(char);
+              printf("esp: %p\n", *esp);
+              printf("%c, 0x%08x\n", argument[j], argument[j]);
+              memset(*esp, argument[j], 1 * sizeof(char));
+              //memset(*esp, 0xee, 1 * sizeof(char));
+            }*/
+            printf("\n");
+          }
+          printf("esp: %p\n", *esp);
+          int alignment = (uint32_t)*esp % 4;
+          printf("align: %d\n", alignment);
+          *esp -= alignment * sizeof(uint8_t);
+          memset(*esp, 0xAA, alignment * sizeof(uint8_t)); //TODO: word alignment, write 0
+          *esp -= sizeof(char*);
+          memset(*esp, 0xBB, 1 * sizeof(char*)); //TODO: null pointer sentinel, write 0
+          void *arg_pos = PHYS_BASE;
+          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+            char *argument = prog_args->args[i];
+            int arg_len = strlen(argument);
+            arg_pos -= (arg_len + 1) * sizeof(char);
+            printf("arg %s start: %p\n", argument, arg_pos);
+            *esp -= sizeof(char*);
+            memcpy(*esp, &arg_pos, sizeof(char*));
+            /*uint8_t* address_bytes = (uint8_t *)&arg_pos;
+            for (int j = 0; j < 4; j++){
+              *esp -= sizeof(char);
+              printf("byte: 0x%08x\n", address_bytes[j]);
+              memset(*esp, address_bytes[j], 1);
+            }*/
+            //*(char**)(*esp) = arg_pos; //TODO: fix store it backwards
+          }
+          void *argv = *esp;
+          *esp -= sizeof(char**);
+          memcpy(*esp, &argv, sizeof(char**));
+          //*(char**)(*esp) = argv; //argv, pointer to last pushed (first) arg, also backwards
+          *esp -= 1 * sizeof(int);
+          memcpy(*esp, &prog_args->num_args, sizeof(int));
+          //*(int*)(*esp) = prog_args->num_args; //wrong, also backwards. idk how to do it properly. memset only works on chars.
+          //memset(*esp, prog_args->num_args, sizeof(int)); // this sets 4 bytes to the value 2, we want to set 2 as a 4 byte number so cant use memset
+          *esp -= 1 * sizeof(void (*)(void));
+          memset(*esp, 0xCC, sizeof(void (*)(void))); //memset works for 0 since doesnt matter the order
+          hex_dump((uintptr_t)PHYS_BASE-64, *esp - (uint32_t)*esp % 64, 64, true);
+          ASSERT(((uint32_t)*esp) % 4 == 0); //TODO: remove. verifies word alignment.
+          printf("0x%08x\n", PHYS_BASE - *esp);
+
+
+
+
+          // The user program will pop items off the stack by incrementing esp, and will read each letter by incrementing esp by 1 byte.
+          // So the arguments should be placed backwards, and the arguments themselves should be pushed backwards letter by letter (end of word at higher address)
+          //*esp -= 4; // for some reason they start at 0xbffffffc, 4 bytes lower
+          /*int stacksize = 0; //in bytes
+          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+            // Traverse the args array backwards from num_args-1 to 0
+            char *argument = prog_args->args[i];
+            int argument_len = strlen(argument);
+            stacksize += argument_len * sizeof(char);
+            for (int j = argument_len; j >= 0; j--) { //len not len-1 to print the null character
+              //Traverse the argument backwards from len-1 to 0
+              memset(*esp, argument[j], 1); //store the character (1 byte) - takes an int (4 bytes) but casts to unsigned char which is 1 byte
+              *esp -= 1; // move to next byte
+            }
+          }
+          hex_dump((uintptr_t)*esp, *esp, 32, true);*/
+
+
+
+
+      //old 1
+          //memset(*esp, (uint32_t)'a', 1); //1 byte
+          //*esp -= 1;
+          /*int stacksize = 0;
+          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+            char* arg = prog_args->args[i];
+            int len = strlen(arg);
+            stacksize += len;
+            for (int32_t j = len - 1; j >= 0; j--) {
+              //printf("%c",arg[j]);
+              memset(*esp, (uint32_t)arg[j], 1);
+              *esp -= 1;
+            }
+            memset(*esp, 0, 1);
+            (*esp)--;
+            //printf("\n");
+          }
+          hex_dump((uintptr_t)PHYS_BASE - stacksize + (stacksize % 8), *esp, 8, true); //decrease by 1 byte, print 1 byte*/
+      //old 2
+          /**esp -= 4*(prog_args->num_args - 1); //TODO: define 4 as WORD_SIZE (in bytes) somewhere.
+          for (int i = prog_args->num_args - 1; i >= 0; i--) {
+            memset(*esp, (uint32_t)prog_args->args[i], strlen(prog_args->args[i]) * sizeof(char));
+          }
+          int alignment = ((uint32_t)*esp) % 4;
+          memset(*esp, 0, alignment);
+          memset(*esp, 0, 4);
+          ASSERT(((uint32_t)*esp) % 4 == 0); //TODO: remove. verifies word alignment.
+          hex_dump((uintptr_t)PHYS_BASE - 16, *esp, 16, true);*/
+        }
       else
         palloc_free_page (kpage);
     }
