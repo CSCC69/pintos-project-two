@@ -465,7 +465,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   // Setup fd table
-  hash_init (&t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+  t->fd_file_table = NULL;
   list_init (&t->fd_file_closed);
   t->fd_max = -1;
 
@@ -477,6 +477,10 @@ init_thread (struct thread *t, const char *name, int priority)
 int
 add_fd_file (struct thread *t, struct file *f)
 {
+
+  if (t->fd_file_table == NULL)
+      hash_init (t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+
   struct fd_file *fd_file;
 
   if (list_empty (&t->fd_file_closed))
@@ -494,7 +498,7 @@ add_fd_file (struct thread *t, struct file *f)
       fd_file->file = f;
     }
 
-  hash_insert (&t->fd_file_table, &fd_file->hash_elem);
+  hash_insert (t->fd_file_table, &fd_file->hash_elem);
 
   return fd_file->fd;
 }
@@ -502,6 +506,10 @@ add_fd_file (struct thread *t, struct file *f)
 void
 remove_fd_file (struct thread *t, int fd)
 {
+
+  if (t->fd_file_table == NULL)
+      hash_init (t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+
   struct fd_file *fd_file = get_fd_file (t, fd);
 
   if (fd_file == NULL)
@@ -513,7 +521,7 @@ remove_fd_file (struct thread *t, int fd)
     list_insert_ordered (&t->fd_file_closed,
                           &fd_file->list_elem, fd_closed_less, NULL);
 
-  hash_delete (&t->fd_file_table, &get_fd_file (t, fd)->hash_elem);
+  hash_delete (t->fd_file_table, &get_fd_file (t, fd)->hash_elem);
 }
 
 struct file * get_open_file (struct thread *t, int fd) {
@@ -523,11 +531,15 @@ struct file * get_open_file (struct thread *t, int fd) {
 struct fd_file *
 get_fd_file (struct thread *t, int fd)
 {
+
+  if (t->fd_file_table == NULL)
+      hash_init (t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+
   struct fd_file fd_file;
   struct hash_elem *elem;
 
   fd_file.fd = fd;
-  elem = hash_find (&t->fd_file_table, &fd_file.hash_elem);
+  elem = hash_find (t->fd_file_table, &fd_file.hash_elem);
 
   return elem != NULL ? hash_entry (elem, struct fd_file, hash_elem) : NULL;
 }

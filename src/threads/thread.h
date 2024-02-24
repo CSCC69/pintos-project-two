@@ -96,7 +96,7 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     /* FD setup */
-    struct hash fd_file_table;
+    struct hash *fd_file_table;
     struct list fd_file_closed;
     int fd_max;
 
