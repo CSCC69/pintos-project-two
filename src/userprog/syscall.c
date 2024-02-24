@@ -177,17 +177,29 @@ int
 open (const char *file)
 {
   struct file* opened_file = filesys_open(file);
-  return add_fd(thread_current(), opened_file);
+  return add_fd_file(thread_current(), opened_file);
 }
 
 int
 filesize (int fd)
 {
+  struct file* file = get_open_file(thread_current(), fd);
+  return file_length(file);
 }
 
 int
 read (int fd, void *buffer, unsigned size)
 {
+  char *buf = (char*)buffer;
+  if (fd == STDIN_FILENO) {
+    for (unsigned i = 0; i < size; i++)
+      buf[i] = input_getc();
+    return size;
+  }
+  else {
+    struct file* file = get_open_file(thread_current(), fd);
+    return file_read(file, buffer, size);
+  }
 }
 
 int
