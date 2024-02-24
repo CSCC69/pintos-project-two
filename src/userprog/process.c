@@ -498,7 +498,7 @@ setup_stack (void **esp, const struct prog_args *prog_args)
           memset(*esp, 0, sizeof(void (*)(void)));
 
           //TODO: remove, for debugging
-          hex_dump((uintptr_t)PHYS_BASE-64, *esp - (uint32_t)*esp % 64, 64, true);
+          //hex_dump((uintptr_t)PHYS_BASE-64, *esp - (uint32_t)*esp % 64, 64, true);
           ASSERT(((uint32_t)*esp) % 4 == 0);
         }
       else
