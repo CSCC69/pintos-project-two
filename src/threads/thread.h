@@ -1,7 +1,9 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+#include "filesys/file.h"
 #include <debug.h>
+#include <hash.h>
 #include <list.h>
 #include <stdint.h>
 
@@ -93,6 +95,11 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* FD setup */
+    struct hash fd_table;
+    struct list fd_closed;
+    int fd_max;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -102,10 +109,28 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+struct fd
+  {
+    int fd;
+    struct file *file;
+    struct hash_elem fd_table_elem;
+    struct list_elem fd_closed_elem;
+  };
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+
+unsigned fd_hash (const struct hash_elem *fd_, void *aux UNUSED);
+bool fd_less (const struct hash_elem *fd1_, const struct hash_elem *fd2_,
+              void *aux UNUSED);
+bool fd_closed_less (const struct list_elem *fd1_,
+                     const struct list_elem *fd2_, void *aux UNUSED);
+
+void add_fd (struct thread *t, struct file *f);
+void remove_fd (struct thread *t, int fd_);
+struct fd *get_fd (struct thread *t, int fd_);
 
 void thread_init (void);
 void thread_start (void);
