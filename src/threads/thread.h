@@ -128,7 +128,7 @@ bool fd_less (const struct hash_elem *fd1_, const struct hash_elem *fd2_,
 bool fd_closed_less (const struct list_elem *fd1_,
                      const struct list_elem *fd2_, void *aux UNUSED);
 
-void add_fd (struct thread *t, struct file *f);
+int add_fd (struct thread *t, struct file *f);
 void remove_fd (struct thread *t, int fd_);
 struct fd *get_fd (struct thread *t, int fd_);
 

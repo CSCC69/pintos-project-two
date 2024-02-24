@@ -474,7 +474,7 @@ init_thread (struct thread *t, const char *name, int priority)
   intr_set_level (old_level);
 }
 
-void
+int
 add_fd (struct thread *t, struct file *f)
 {
   struct fd *fd;
@@ -495,6 +495,8 @@ add_fd (struct thread *t, struct file *f)
     }
 
   hash_insert (&t->fd_table, &fd->fd_table_elem);
+
+  return fd->fd;
 }
 
 void
