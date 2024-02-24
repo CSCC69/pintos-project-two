@@ -176,6 +176,8 @@ remove (const char *file)
 int
 open (const char *file)
 {
+  struct file* opened_file = filesys_open(file);
+  return add_fd(thread_current(), opened_file);
 }
 
 int
