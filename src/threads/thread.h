@@ -96,8 +96,8 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     /* FD setup */
-    struct hash fd_table;
-    struct list fd_closed;
+    struct hash fd_file_table;
+    struct list fd_file_closed;
     int fd_max;
 
 #ifdef USERPROG
@@ -109,12 +109,12 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
-struct fd
+struct fd_file
   {
     int fd;
     struct file *file;
-    struct hash_elem fd_table_elem;
-    struct list_elem fd_closed_elem;
+    struct hash_elem hash_elem;
+    struct list_elem list_elem;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -122,15 +122,16 @@ struct fd
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
-unsigned fd_hash (const struct hash_elem *fd_, void *aux UNUSED);
-bool fd_less (const struct hash_elem *fd1_, const struct hash_elem *fd2_,
-              void *aux UNUSED);
-bool fd_closed_less (const struct list_elem *fd1_,
-                     const struct list_elem *fd2_, void *aux UNUSED);
+unsigned fd_file_hash (const struct hash_elem *fd_file_, void *aux UNUSED);
+bool fd_file_less (const struct hash_elem *fd1_file_,
+                  const struct hash_elem *fd2_file_, void *aux UNUSED);
+bool fd_closed_less (const struct list_elem *fd1_file_,
+                     const struct list_elem *fd2_file_, void *aux UNUSED);
 
-int add_fd (struct thread *t, struct file *f);
-void remove_fd (struct thread *t, int fd_);
-struct fd *get_fd (struct thread *t, int fd_);
+int add_fd_file (struct thread *t, struct file *f);
+void remove_fd_file (struct thread *t, int fd);
+struct file * get_open_file (struct thread *t, int fd);
+struct fd_file *get_fd_file (struct thread *t, int fd_file_);
 
 void thread_init (void);
 void thread_start (void);

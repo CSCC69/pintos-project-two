@@ -465,8 +465,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   // Setup fd table
-  hash_init (&t->fd_table, fd_hash, fd_less, NULL);
-  list_init (&t->fd_closed);
+  hash_init (&t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+  list_init (&t->fd_file_closed);
   t->fd_max = -1;
 
   old_level = intr_disable ();
@@ -475,85 +475,89 @@ init_thread (struct thread *t, const char *name, int priority)
 }
 
 int
-add_fd (struct thread *t, struct file *f)
+add_fd_file (struct thread *t, struct file *f)
 {
-  struct fd *fd;
+  struct fd_file *fd_file;
 
-  if (list_empty (&t->fd_closed))
+  if (list_empty (&t->fd_file_closed))
     {
       t->fd_max++;
 
-      fd = palloc_get_page (0);
-      fd->fd = t->fd_max;
-      fd->file = f;
+      fd_file = palloc_get_page (0);
+      fd_file->fd = t->fd_max;
+      fd_file->file = f;
     }
   else
     {
-      fd = list_entry (list_pop_front (&t->fd_closed), struct fd,
-                       fd_closed_elem);
-      fd->file = f;
+      fd_file = list_entry (list_pop_front (&t->fd_file_closed), struct fd_file,
+                       list_elem);
+      fd_file->file = f;
     }
 
-  hash_insert (&t->fd_table, &fd->fd_table_elem);
+  hash_insert (&t->fd_file_table, &fd_file->hash_elem);
 
-  return fd->fd;
+  return fd_file->fd;
 }
 
 void
-remove_fd (struct thread *t, int fd_)
+remove_fd_file (struct thread *t, int fd)
 {
-  struct fd *fd = get_fd (t, fd_);
+  struct fd_file *fd_file = get_fd_file (t, fd);
 
-  if (fd == NULL)
+  if (fd_file == NULL)
     return;
 
-  if (fd_ == fd->fd)
+  if (fd == fd_file->fd)
     t->fd_max--;
   else
-    list_insert_ordered (&t->fd_closed, &fd->fd_closed_elem, fd_closed_less,
-                           NULL);
+    list_insert_ordered (&t->fd_file_closed,
+                          &fd_file->list_elem, fd_closed_less, NULL);
 
-  hash_delete (&t->fd_table, &get_fd (t, fd_)->fd_table_elem);
+  hash_delete (&t->fd_file_table, &get_fd_file (t, fd)->hash_elem);
 }
 
-struct fd *
-get_fd (struct thread *t, int fd_)
+struct file * get_open_file (struct thread *t, int fd) {
+  return get_fd_file(t, fd)->file;
+}
+
+struct fd_file *
+get_fd_file (struct thread *t, int fd)
 {
-  struct fd fd;
+  struct fd_file fd_file;
   struct hash_elem *elem;
 
-  fd.fd = fd_;
-  elem = hash_find (&t->fd_table, &fd.fd_table_elem);
+  fd_file.fd = fd;
+  elem = hash_find (&t->fd_file_table, &fd_file.hash_elem);
 
-  return elem != NULL ? hash_entry (elem, struct fd, fd_table_elem) : NULL;
+  return elem != NULL ? hash_entry (elem, struct fd_file, hash_elem) : NULL;
 }
 
 unsigned
-fd_hash (const struct hash_elem *fd_, void *aux UNUSED)
+fd_file_hash (const struct hash_elem *fd_file_, void *aux UNUSED)
 {
-  const struct fd *fd = hash_entry (fd_, struct fd, fd_table_elem);
-  return hash_bytes (&fd->fd, sizeof fd->fd);
+  const struct fd_file *fd_file = hash_entry (fd_file_, struct fd_file, hash_elem);
+  return hash_bytes (&fd_file->fd, sizeof fd_file->fd);
 }
 
 bool
-fd_closed_less (const struct list_elem *fd1_, const struct list_elem *fd2_,
+fd_closed_less (const struct list_elem *fd1_file_, const struct list_elem *fd2_file_,
                 void *aux UNUSED)
 {
-  const struct fd *fd1 = list_entry (fd1_, struct fd, fd_closed_elem);
-  const struct fd *fd2 = list_entry (fd2_, struct fd, fd_closed_elem);
+  const struct fd_file *fd1_file = list_entry (fd1_file_, struct fd_file, list_elem);
+  const struct fd_file *fd2_file = list_entry (fd2_file_, struct fd_file, list_elem);
 
   // we want to insert in ascending order
-  return fd1->fd < fd2->fd;
+  return fd1_file->fd < fd2_file->fd;
 }
 
 bool
-fd_less (const struct hash_elem *fd1_, const struct hash_elem *fd2_,
+fd_file_less (const struct hash_elem *fd1_file_, const struct hash_elem *fd2_file_,
          void *aux UNUSED)
 {
-  const struct fd *fd1 = hash_entry (fd1_, struct fd, fd_table_elem);
-  const struct fd *fd2 = hash_entry (fd2_, struct fd, fd_table_elem);
+  const struct fd_file *fd1_file = hash_entry (fd1_file_, struct fd_file, hash_elem);
+  const struct fd_file *fd2_file = hash_entry (fd2_file_, struct fd_file, hash_elem);
 
-  return fd1->fd < fd2->fd;
+  return fd1_file->fd < fd2_file->fd;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
