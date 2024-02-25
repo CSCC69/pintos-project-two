@@ -207,17 +207,15 @@ write (int fd, const void *buffer, unsigned length)
 {
   if (fd == STDOUT_FILENO)
   {
-    if (length > 5)
-    {
-      int chunks = length / 5;
-      int len_remaining = length;
-      for (int i = 0; i < chunks; i++) {
-        putbuf(buffer, 5);
-        len_remaining -= 5;
-      }
-      putbuf(buffer, len_remaining);
-    }
-    putbuf (buffer, length);
+
+    int remaining = length % 5;
+    int chunks = length / 5;
+
+    putbuf(buffer, remaining);
+
+    for (int i = remaining; i < length; i += 5)
+      putbuf(&buffer[i], 5);
+
     return length;
   }
   else
