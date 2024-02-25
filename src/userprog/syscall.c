@@ -11,6 +11,7 @@
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include <syscall-nr.h>
+#include <string.h>
 
 void syscall_handler (struct intr_frame *);
 void halt (void);
@@ -67,32 +68,32 @@ syscall_handler (struct intr_frame *f)
     case SYS_EXEC:
       stack_pop (&syscall_args[0], 1, esp);
       const char *file = *(const char **)syscall_args[0];
-      exec (file);
+      f->eax = exec (file);
       break;
     case SYS_WAIT:
       stack_pop (&syscall_args[0], 1, esp);
       tid_t pid = *(tid_t *)syscall_args[0];
-      wait (pid);
+      f->eax = wait (pid);
       break;
     case SYS_REMOVE:
       stack_pop (&syscall_args[0], 1, esp);
       file = *(const char **)syscall_args[0];
-      remove (file);
+      f->eax = remove (file);
       break;
     case SYS_OPEN:
       stack_pop (&syscall_args[0], 1, esp);
       file = *(const char **)syscall_args[0];
-      open (file);
+      f->eax = open (file);
       break;
     case SYS_FILESIZE:
       stack_pop (&syscall_args[0], 1, esp);
       int fd = *(int *)syscall_args[0];
-      filesize (fd);
+      f->eax = filesize (fd);
       break;
     case SYS_TELL:
       stack_pop (&syscall_args[0], 1, esp);
       fd = *(int *)syscall_args[0];
-      tell (fd);
+      f->eax = tell (fd);
       break;
     case SYS_CLOSE:
       stack_pop (&syscall_args[0], 1, esp);
@@ -104,7 +105,7 @@ syscall_handler (struct intr_frame *f)
       stack_pop (&syscall_args[0], 2, esp);
       file = *(const char **)syscall_args[0];
       unsigned initial_size = *(unsigned *)syscall_args[1];
-      create (file, initial_size);
+      f->eax = create (file, initial_size);
       break;
     case SYS_SEEK:
       stack_pop (&syscall_args[0], 2, esp);
@@ -118,14 +119,14 @@ syscall_handler (struct intr_frame *f)
       fd = *(int *)syscall_args[0];
       void *read_buffer = *(void **)syscall_args[1];
       unsigned size = *(unsigned *)syscall_args[2];
-      read (fd, read_buffer, size);
+      f->eax = read (fd, read_buffer, size);
       break;
     case SYS_WRITE:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
       const char *write_buffer = *(const char **)syscall_args[1];
       unsigned int length = *(unsigned int *)syscall_args[2];
-      write (fd, write_buffer, length);
+      f->eax = write (fd, write_buffer, length);
       break;
     default:
       break;
@@ -164,6 +165,8 @@ wait (pid_t pid)
 bool
 create (const char *file, unsigned initial_size)
 {
+  if (initial_size < 0 || file == NULL || file == "" || strlen(file) > 14 || strlen(file) == 0 || file == "\0")
+    return false;
   return filesys_create (file, initial_size);
 }
 
