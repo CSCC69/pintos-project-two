@@ -154,7 +154,8 @@ exec (const char *cmd_line)
   if (cmd_line == NULL || strcmp(cmd_line, "") == 0)
     return PID_ERROR;
   pid_t pid = process_execute (cmd_line);
-  sema_down(&get_thread_by_tid(pid)->exec_sema);
+  struct thread* thread = get_thread_by_tid(pid);
+  sema_down(&thread->exec_sema);
   return pid;
 }
 
