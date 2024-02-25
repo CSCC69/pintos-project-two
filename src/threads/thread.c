@@ -468,6 +468,7 @@ init_thread (struct thread *t, const char *name, int priority, tid_t parent)
   t->parent = parent;
 
   sema_init(&t->wait_sema, 0);
+  sema_init(&t->exec_sema, 0);
 
   // Setup fd table
   list_init (&t->fd_file_closed);

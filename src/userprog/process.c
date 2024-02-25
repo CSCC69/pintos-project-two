@@ -82,6 +82,7 @@ start_process (void *prog_args_)
   if (!success) 
     thread_exit ();
 
+  sema_up(&thread_current()->exec_sema);
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its

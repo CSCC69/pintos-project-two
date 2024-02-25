@@ -154,6 +154,7 @@ exec (const char *cmd_line)
   if (cmd_line == NULL || strcmp(cmd_line, "") == 0)
     return PID_ERROR;
   pid_t pid = process_execute (cmd_line);
+  sema_down(&get_thread_by_tid(pid)->exec_sema);
   return pid;
 }
 
@@ -169,7 +170,10 @@ wait (pid_t pid)
 bool
 create (const char *file, unsigned initial_size)
 {
-  if (initial_size < 0 || file == NULL || strcmp(file, "") == 0 || strlen(file) > 14 || strlen(file) == 0 || strcmp(file, "\0") == 0)
+  //TODO: FIX IT
+  if(file == NULL)
+    exit(-1);
+  if (initial_size < 0 || strcmp(file, "") == 0 || strlen(file) > 14 || strlen(file) == 0 || strcmp(file, "\0") == 0)
     return false;
   return filesys_create (file, initial_size);
 }
@@ -178,7 +182,7 @@ bool
 remove (const char *file)
 {
   if (file == NULL || strcmp(file, "") == 0)
-    return -1;
+    exit(-1);
   return filesys_remove (file);
 }
 

@@ -105,6 +105,7 @@ struct thread
     tid_t parent;
 
     struct semaphore wait_sema;
+    struct semaphore exec_sema;
 
     bool is_fd_table_initialized;
 
