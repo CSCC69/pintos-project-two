@@ -188,6 +188,8 @@ open (const char *file)
   if (file == NULL || strcmp(file, "") == 0)
     return -1;
   struct file* opened_file = filesys_open(file);
+  if (!opened_file)
+    return -1;
   return add_fd_file(thread_current(), opened_file);
 }
 
