@@ -39,8 +39,8 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  struct prog_args *prog_args = palloc_get_page(0);
-  prog_args->args = palloc_get_page(0);
+  struct prog_args *prog_args = palloc_get_page(PAL_ZERO);
+  prog_args->args = palloc_get_page(PAL_ZERO);
 
   char *token, *save_ptr;
   for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
