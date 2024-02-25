@@ -152,6 +152,8 @@ pid_t
 exec (const char *cmd_line)
 {
   pid_t pid = process_execute (cmd_line);
+  struct thread *child = get_thread_by_tid(pid);
+  sema_down(&child->program_loaded);
   return pid;
 }
 
