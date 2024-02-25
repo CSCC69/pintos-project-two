@@ -206,8 +206,25 @@ int
 write (int fd, const void *buffer, unsigned length)
 {
   if (fd == STDOUT_FILENO)
+  {
+    if (length > 5)
+    {
+      int chunks = length / 5;
+      int len_remaining = length;
+      for (int i = 0; i < chunks; i++) {
+        putbuf(buffer, 5);
+        len_remaining -= 5;
+      }
+      putbuf(buffer, len_remaining);
+    }
     putbuf (buffer, length);
-  // TODO else file referenced by fd not just console
+    return length;
+  }
+  else
+  {
+    struct file* file = get_open_file(thread_current(), fd);
+    return file_write(file, buffer, length);
+  }
 }
 
 void
