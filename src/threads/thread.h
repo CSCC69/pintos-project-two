@@ -6,6 +6,7 @@
 #include <hash.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -87,6 +88,7 @@ struct thread
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
     enum thread_status status;          /* Thread state. */
+    enum thread_status exit_status;   /* Former thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
@@ -98,7 +100,11 @@ struct thread
     /* FD setup */
     struct hash *fd_file_table;
     struct list fd_file_closed;
-    int fd_max;
+    int fd_max;\
+
+    tid_t parent;
+
+    struct semaphore wait_sema;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -163,5 +169,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+struct thread *get_thread_by_tid (tid_t tid);
 
 #endif /* threads/thread.h */

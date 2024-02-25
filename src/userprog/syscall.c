@@ -142,7 +142,7 @@ void
 exit (int status)
 {
   struct thread *cur = thread_current ();
-  cur->status = status;
+  cur->exit_status = status;
   printf ("%s: exit(%d)\n", cur->name, status);
   thread_exit ();
 }
@@ -215,7 +215,7 @@ write (int fd, const void *buffer, unsigned length)
 
     for (int i = remaining; i < length; i += 5)
       putbuf(&buffer[i], 5);
-
+  
     return length;
   }
   else
