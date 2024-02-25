@@ -2,6 +2,7 @@
 #define THREADS_THREAD_H
 
 #include "filesys/file.h"
+#include "threads/synch.h"
 #include <debug.h>
 #include <hash.h>
 #include <list.h>
@@ -105,6 +106,8 @@ struct thread
     tid_t parent;
 
     struct semaphore wait_sema;
+
+    struct semaphore program_loaded;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

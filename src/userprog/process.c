@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "threads/synch.h"
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -79,8 +80,10 @@ start_process (void *prog_args_)
   palloc_free_page (prog_args->name);
   palloc_free_page(prog_args->args);
   palloc_free_page(prog_args);
-  if (!success) 
+  if (!success)
     thread_exit ();
+
+  sema_up(&thread_current()->program_loaded);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "stdio.h"
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "user/syscall.h"
@@ -207,13 +208,10 @@ write (int fd, const void *buffer, unsigned length)
 {
   if (fd == STDOUT_FILENO)
   {
-
     int remaining = length % 5;
-    int chunks = length / 5;
-
     putbuf(buffer, remaining);
 
-    for (int i = remaining; i < length; i += 5)
+    for (unsigned i = remaining; i < length; i += 5)
       putbuf(&buffer[i], 5);
   
     return length;
@@ -228,14 +226,20 @@ write (int fd, const void *buffer, unsigned length)
 void
 seek (int fd, unsigned position)
 {
+  struct file* file = get_open_file(thread_current(), fd);
+  file_seek(file, position);
 }
 
 unsigned
 tell (int fd)
 {
+  struct file* file = get_open_file(thread_current(), fd);
+  return file_tell(file);
 }
 
 void
 close (int fd)
 {
+  struct file* file = get_open_file(thread_current(), fd);
+  file_close(file);
 }
