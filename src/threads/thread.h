@@ -98,13 +98,15 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     /* FD setup */
-    struct hash *fd_file_table;
+    struct hash fd_file_table;
     struct list fd_file_closed;
-    int fd_max;\
+    int fd_max;
 
     tid_t parent;
 
     struct semaphore wait_sema;
+
+    bool is_fd_table_initialized;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

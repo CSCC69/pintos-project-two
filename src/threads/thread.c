@@ -470,9 +470,9 @@ init_thread (struct thread *t, const char *name, int priority, tid_t parent)
   sema_init(&t->wait_sema, 0);
 
   // Setup fd table
-  t->fd_file_table = NULL;
   list_init (&t->fd_file_closed);
-  t->fd_max = -1;
+  t->fd_max = 1;
+  t->is_fd_table_initialized = false;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -482,9 +482,11 @@ init_thread (struct thread *t, const char *name, int priority, tid_t parent)
 int
 add_fd_file (struct thread *t, struct file *f)
 {
-
-  if (t->fd_file_table == NULL)
-      hash_init (t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+  if (!t->is_fd_table_initialized)
+    {
+      hash_init (&t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+      t->is_fd_table_initialized = true;
+    }
 
   struct fd_file *fd_file;
 
@@ -493,6 +495,8 @@ add_fd_file (struct thread *t, struct file *f)
       t->fd_max++;
 
       fd_file = palloc_get_page (0);
+      if (fd_file == NULL)
+        return -1;
       fd_file->fd = t->fd_max;
       fd_file->file = f;
     }
@@ -503,7 +507,7 @@ add_fd_file (struct thread *t, struct file *f)
       fd_file->file = f;
     }
 
-  hash_insert (t->fd_file_table, &fd_file->hash_elem);
+  hash_insert (&t->fd_file_table, &fd_file->hash_elem);
 
   return fd_file->fd;
 }
@@ -511,9 +515,11 @@ add_fd_file (struct thread *t, struct file *f)
 void
 remove_fd_file (struct thread *t, int fd)
 {
-
-  if (t->fd_file_table == NULL)
-      hash_init (t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+  if (!t->is_fd_table_initialized)
+    {
+      hash_init (&t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+      t->is_fd_table_initialized = true;
+    }
 
   struct fd_file *fd_file = get_fd_file (t, fd);
 
@@ -526,25 +532,30 @@ remove_fd_file (struct thread *t, int fd)
     list_insert_ordered (&t->fd_file_closed,
                           &fd_file->list_elem, fd_closed_less, NULL);
 
-  hash_delete (t->fd_file_table, &get_fd_file (t, fd)->hash_elem);
+  hash_delete (&t->fd_file_table, &get_fd_file (t, fd)->hash_elem);
 }
 
 struct file * get_open_file (struct thread *t, int fd) {
-  return get_fd_file(t, fd)->file;
+  struct fd_file* fd_file = get_fd_file(t, fd);
+  if (fd_file == NULL)
+    return NULL;
+  return fd_file->file;
 }
 
 struct fd_file *
 get_fd_file (struct thread *t, int fd)
 {
-
-  if (t->fd_file_table == NULL)
-      hash_init (t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+  if (!t->is_fd_table_initialized)
+    {
+      hash_init (&t->fd_file_table, fd_file_hash, fd_file_less, NULL);
+      t->is_fd_table_initialized = true;
+    }
 
   struct fd_file fd_file;
   struct hash_elem *elem;
 
   fd_file.fd = fd;
-  elem = hash_find (t->fd_file_table, &fd_file.hash_elem);
+  elem = hash_find (&t->fd_file_table, &fd_file.hash_elem);
 
   return elem != NULL ? hash_entry (elem, struct fd_file, hash_elem) : NULL;
 }

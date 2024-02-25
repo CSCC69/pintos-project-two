@@ -151,6 +151,8 @@ exit (int status)
 pid_t
 exec (const char *cmd_line)
 {
+  if (cmd_line == NULL || strcmp(cmd_line, "") == 0)
+    return PID_ERROR;
   pid_t pid = process_execute (cmd_line);
   return pid;
 }
@@ -159,13 +161,15 @@ exec (const char *cmd_line)
 int
 wait (pid_t pid)
 {
+  if (pid < 0)
+    return -1;
   return process_wait (pid);
 }
 
 bool
 create (const char *file, unsigned initial_size)
 {
-  if (initial_size < 0 || file == NULL || file == "" || strlen(file) > 14 || strlen(file) == 0 || file == "\0")
+  if (initial_size < 0 || file == NULL || strcmp(file, "") == 0 || strlen(file) > 14 || strlen(file) == 0 || strcmp(file, "\0") == 0)
     return false;
   return filesys_create (file, initial_size);
 }
@@ -173,12 +177,16 @@ create (const char *file, unsigned initial_size)
 bool
 remove (const char *file)
 {
+  if (file == NULL || strcmp(file, "") == 0)
+    return -1;
   return filesys_remove (file);
 }
 
 int
 open (const char *file)
 {
+  if (file == NULL || strcmp(file, "") == 0)
+    return -1;
   struct file* opened_file = filesys_open(file);
   return add_fd_file(thread_current(), opened_file);
 }
@@ -186,13 +194,21 @@ open (const char *file)
 int
 filesize (int fd)
 {
+  if (fd < 0)
+    return -1;
+
   struct file* file = get_open_file(thread_current(), fd);
+  if (!file)
+    return -1;
   return file_length(file);
 }
 
 int
 read (int fd, void *buffer, unsigned size)
 {
+  if (fd < 0)
+    return -1;
+
   char *buf = (char*)buffer;
   if (fd == STDIN_FILENO) {
     for (unsigned i = 0; i < size; i++)
@@ -201,6 +217,8 @@ read (int fd, void *buffer, unsigned size)
   }
   else {
     struct file* file = get_open_file(thread_current(), fd);
+    if (!file)
+      return -1;
     return file_read(file, buffer, size);
   }
 }
@@ -208,46 +226,60 @@ read (int fd, void *buffer, unsigned size)
 int
 write (int fd, const void *buffer, unsigned length)
 {
+  if (fd < 0 || buffer == NULL || length < 0)
+    return -1;
+
   if (fd == STDOUT_FILENO)
-  {
+    {
+      int remaining = length % 5;
+      putbuf(buffer, remaining);
 
-    int remaining = length % 5;
-    int chunks = length / 5;
-
-    putbuf(buffer, remaining);
-
-    for (int i = remaining; i < length; i += 5)
-      putbuf(&buffer[i], 5);
+      for (unsigned i = remaining; i < length; i += 5)
+        putbuf(&buffer[i], 5);
   
-    return length;
-  }
+      return length;
+    }
   else
-  {
-    struct file* file = get_open_file(thread_current(), fd);
-    return file_write(file, buffer, length);
-  }
+    {
+      struct file* file = get_open_file(thread_current(), fd);
+      if (!file)
+        return -1;
+      return file_write(file, buffer, length);
+    }
 }
 
 void
 seek (int fd, unsigned position)
 {
+  if (fd < 0 || position < 0)
+    return;
+
   struct file* file = get_open_file(thread_current(), fd);
-  if(file){
-    file_seek(file, position);
-  }
+  if(!file)
+    return;
+  file_seek(file, position);
 }
 
 unsigned
 tell (int fd)
 {
+  if (fd < 0)
+    return 0;
+
   struct file* file = get_open_file(thread_current(), fd);
-  if(file){
+  if(file) {
     return file_tell(file);
   }
+  return 0;
 }
 
 void
 close (int fd)
 {
+  if (fd < 0)
+    return;
+
+  struct file* file = get_open_file(thread_current(), fd);
+  file_close(file);
   remove_fd_file(thread_current(), fd);
 }
