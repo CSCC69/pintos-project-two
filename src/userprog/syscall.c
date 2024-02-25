@@ -228,14 +228,23 @@ write (int fd, const void *buffer, unsigned length)
 void
 seek (int fd, unsigned position)
 {
+  struct file* file = get_open_file(thread_current(), fd);
+  if(file){
+    file_seek(file, position);
+  }
 }
 
 unsigned
 tell (int fd)
 {
+  struct file* file = get_open_file(thread_current(), fd);
+  if(file){
+    return file_tell(file);
+  }
 }
 
 void
 close (int fd)
 {
+  remove_fd_file(thread_current(), fd);
 }
