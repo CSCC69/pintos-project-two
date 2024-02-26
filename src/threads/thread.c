@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "list.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -64,7 +65,7 @@ static void kernel_thread (thread_func *, void *aux);
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
-static void init_thread (struct thread *, const char *name, int priority, tid_t parent);
+static void init_thread (struct thread *, const char *name, int priority, struct thread *parent);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
@@ -180,7 +181,7 @@ thread_create (const char *name, int priority,
     return TID_ERROR;
 
   /* Initialize thread. */
-  init_thread (t, name, priority, thread_current()->tid);
+  init_thread (t, name, priority, thread_current());
   tid = t->tid = allocate_tid ();
 
   /* Stack frame for kernel_thread(). */
@@ -450,7 +451,7 @@ is_thread (struct thread *t)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
-init_thread (struct thread *t, const char *name, int priority, tid_t parent)
+init_thread (struct thread *t, const char *name, int priority, struct thread *parent)
 {
   enum intr_level old_level;
 
@@ -469,6 +470,8 @@ init_thread (struct thread *t, const char *name, int priority, tid_t parent)
 
   sema_init(&t->wait_sema, 0);
   sema_init(&t->exec_sema, 0);
+
+  list_init(&t->child_threads);
 
   // Setup fd table
   list_init (&t->fd_file_closed);
@@ -699,18 +702,25 @@ allocate_tid (void)
   return tid;
 }
 
-struct thread *get_thread_by_tid (tid_t tid) {
+struct thread *get_thread_by_tid (tid_t tid, struct thread* parent) {
   enum intr_level old_level = intr_disable();
+
+  struct list child_list = parent->child_threads;
 
   struct list_elem *e;
 
-  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
-    struct thread *t = list_entry (e, struct thread, allelem);
+  if (list_empty(&child_list))
+    goto done;
+
+  for (e = list_begin (&child_list); e != list_end (&child_list); e = list_next (e)) {
+    struct thread *t = list_entry (e, struct thread, childelem);
     if (t->tid == tid) {
       intr_set_level(old_level);
       return t;
     }
   }
+
+  done:
   intr_set_level(old_level); 
     return NULL;
 }

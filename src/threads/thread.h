@@ -102,7 +102,7 @@ struct thread
     struct list fd_file_closed;
     int fd_max;
 
-    tid_t parent;
+    struct thread *parent;
 
     struct semaphore wait_sema;
     struct semaphore exec_sema;
@@ -110,6 +110,9 @@ struct thread
     bool is_fd_table_initialized;
 
     struct file* executable;
+
+    struct list_elem childelem;
+    struct list child_threads;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -175,6 +178,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-struct thread *get_thread_by_tid (tid_t tid);
+struct thread *get_thread_by_tid (tid_t tid, struct thread* parent);
 
 #endif /* threads/thread.h */

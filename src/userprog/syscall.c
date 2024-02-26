@@ -3,6 +3,7 @@
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "list.h"
 #include "stdio.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
@@ -166,8 +167,11 @@ exec (const char *cmd_line)
   file_close(file);
 
   pid_t pid = process_execute (cmd_line);
-  struct thread* thread = get_thread_by_tid(pid);
+  struct thread* thread = get_thread_by_tid(pid, thread_current());
   sema_down(&thread->exec_sema);
+
+  list_push_back(&thread_current()->child_threads, &thread->childelem);
+
   return pid;
 }
 
