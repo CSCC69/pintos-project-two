@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "stdio.h"
 #include "threads/interrupt.h"
+#include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "user/syscall.h"
@@ -153,6 +154,17 @@ exec (const char *cmd_line)
 {
   if (cmd_line == NULL || strcmp(cmd_line, "") == 0)
     return PID_ERROR;
+
+  int a = strcspn(cmd_line, " ");
+  char *file_name = palloc_get_page(0);
+  memcpy(file_name, cmd_line, a);
+  file_name[a] = '\0';
+
+  struct file* file = filesys_open(file_name);
+  if (file == NULL)
+    return -1;
+  file_close(file);
+
   pid_t pid = process_execute (cmd_line);
   struct thread* thread = get_thread_by_tid(pid);
   sema_down(&thread->exec_sema);

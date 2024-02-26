@@ -88,7 +88,7 @@ struct thread
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
     enum thread_status status;          /* Thread state. */
-    enum thread_status exit_status;   /* Former thread state. */
+    int exit_status;                    /* Thread exit value. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
@@ -108,6 +108,8 @@ struct thread
     struct semaphore exec_sema;
 
     bool is_fd_table_initialized;
+
+    struct file* executable;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

@@ -42,6 +42,7 @@ process_execute (const char *file_name)
   struct prog_args *prog_args = palloc_get_page(PAL_ZERO);
   prog_args->args = palloc_get_page(PAL_ZERO);
 
+  // Parse space-delimited arguments
   char *token, *save_ptr;
   for (token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
        token = strtok_r (NULL, " ", &save_ptr)) {
@@ -137,6 +138,12 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  /* Close the executable file held open to deny writes to 
+     running program code */
+  if (cur->executable)
+    file_close(cur->executable);
+
 }
 
 /* Sets up the CPU for running user code in the current
@@ -335,7 +342,11 @@ load (const struct prog_args *prog_args, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if (!success)
+    file_close(file);
+  //TODO: close the file when the process dies
+  t->executable = file;
+  file_deny_write(file);
   return success;
 }
 
