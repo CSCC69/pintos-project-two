@@ -184,7 +184,7 @@ syscall_handler (struct intr_frame *f)
     case SYS_READ:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
-      verify_user_pointer_word(syscall_args[1]);
+verify_user_pointer_word(syscall_args[1]);
       void *read_buffer = *(void **)syscall_args[1];
       unsigned size = *(unsigned *)syscall_args[2];
       f->eax = read (fd, read_buffer, size);
@@ -192,7 +192,7 @@ syscall_handler (struct intr_frame *f)
     case SYS_WRITE:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
-      verify_user_pointer_word(syscall_args[1]);
+verify_user_pointer_word(syscall_args[1]);
       const char *write_buffer = *(const char **)syscall_args[1];
       unsigned int length = *(unsigned int *)syscall_args[2];
       f->eax = write (fd, write_buffer, length);
@@ -236,6 +236,8 @@ exec (const char *cmd_line)
   lock_release(&file_lock);
 
   pid_t pid = process_execute (cmd_line);
+  if (pid == PID_ERROR)
+    return PID_ERROR;
   struct thread* thread = get_child_by_tid(pid);
   sema_down(&thread->exec_sema);
 

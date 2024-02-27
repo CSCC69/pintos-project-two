@@ -510,7 +510,7 @@ add_fd_file (struct thread *t, struct file *f)
     {
       t->fd_max++;
 
-      fd_file = palloc_get_page (0);
+      fd_file = malloc (sizeof *fd_file);
       if (fd_file == NULL)
         return -1;
       fd_file->fd = t->fd_max;
@@ -597,7 +597,7 @@ free_fds (struct thread* t)
     struct fd_file *fd_file = list_entry (e, struct fd_file, list_elem);
     // file_close(fd_file->file);
     list_remove(&fd_file->list_elem);
-    palloc_free_page(fd_file);
+    free(fd_file);
   }
 }
 
@@ -606,7 +606,7 @@ fd_destroyer (struct hash_elem *e, void *aux UNUSED)
 {
   struct fd_file *fd_file = hash_entry (e, struct fd_file, hash_elem);
   file_close(fd_file->file);
-  palloc_free_page(fd_file);
+  free(fd_file);
 }
 
 unsigned

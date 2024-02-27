@@ -52,6 +52,8 @@ process_execute (const char *file_name)
   }
 
   prog_args->name = palloc_get_page(0);
+  if (prog_args->name == NULL)
+    return TID_ERROR;
   strlcpy(prog_args->name, prog_args->args[0], PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
@@ -182,8 +184,9 @@ process_exit (void)
 
   /* Close the executable file held open to deny writes to
      running program code */
-  if (cur->executable)
-    file_close(cur->executable);
+  //TODO: maybe we need to close the executable here -- check if its closed somewhere else
+  // if (cur->executable)
+  //   file_close(cur->executable);
 
 }
 
@@ -385,10 +388,10 @@ load (const struct prog_args *prog_args, void (**eip) (void), void **esp)
   /* We arrive here whether the load is successful or not. */
   if (!success)
     file_close(file);
+  else if (file)
+    file_deny_write(file);
   //TODO: close the file when the process dies
   t->executable = file;
-  if (file)
-    file_deny_write(file);
   return success;
 }
 
