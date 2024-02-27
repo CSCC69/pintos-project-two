@@ -133,10 +133,26 @@ free_thread_and_childs (struct thread *parent)
 
   for (e = list_begin (&parent->child_threads); e != list_end (&parent->child_threads); e = list_next (e)) {
     struct thread *child = list_entry (e, struct thread, childelem);
-    free_thread_and_childs(child);
+    if (child->status == THREAD_DYING) {
+      list_remove(&child->allelem);
+      free_thread_and_childs(child);
+    } else {
+      child->parent = NULL;
+    }
   }
 
   palloc_free_page(parent);
+}
+
+void
+free_childs (struct thread* parent)
+{
+  struct list_elem *e;
+  for (e = list_begin (&parent->child_threads); e != list_end (&parent->child_threads); e = list_next (e)) {
+    struct thread *child = list_entry (e, struct thread, childelem);
+    list_remove(&child->childelem);
+    free_thread_and_childs(child);
+  }
 }
 
 /* Free the current process's resources. */

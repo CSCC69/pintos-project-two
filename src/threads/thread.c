@@ -294,6 +294,14 @@ thread_exit (void)
   list_remove (&thread_current()->allelem);
   sema_up(&thread_current()->wait_sema);
   thread_current ()->status = THREAD_DYING;
+
+  // struct thread *t = thread_current ();
+  // if (t->parent != NULL){
+  //   free_childs(t);
+  //   t->status = THREAD_DYING;
+  // } else{
+  //   free_thread_and_childs(t);
+  // }
   schedule ();
   NOT_REACHED ();
 }
