@@ -577,10 +577,10 @@ get_fd_file (struct thread *t, int fd)
 }
 
 void
-free_fds (struct thread* parent)
+free_fds (struct thread* t)
 {
 
-  hash_destroy(&parent->fd_file_table, fd_destroyer);
+  hash_destroy(&t->fd_file_table, fd_destroyer);
 
   // struct hash_iterator i;
   // hash_first (&i, &parent->fd_file_table);
@@ -593,7 +593,7 @@ free_fds (struct thread* parent)
   // }
 
   struct list_elem *e;
-  for (e = list_begin (&parent->fd_file_closed); e != list_end (&parent->fd_file_closed); e = list_next (e)) {
+  for (e = list_begin (&t->fd_file_closed); e != list_end (&t->fd_file_closed); e = list_next (e)) {
     struct fd_file *fd_file = list_entry (e, struct fd_file, list_elem);
     // file_close(fd_file->file);
     list_remove(&fd_file->list_elem);
