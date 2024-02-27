@@ -468,6 +468,8 @@ init_thread (struct thread *t, const char *name, int priority, struct thread *pa
   t->magic = THREAD_MAGIC;
   t->parent = parent;
 
+  list_push_back(&parent->child_threads, &t->childelem);
+
   sema_init(&t->wait_sema, 0);
   sema_init(&t->exec_sema, 0);
 
@@ -702,15 +704,17 @@ allocate_tid (void)
   return tid;
 }
 
-struct thread *get_thread_by_tid (tid_t tid, struct thread* parent) {
+struct thread *get_thread_by_tid (tid_t tid) {
   enum intr_level old_level = intr_disable();
 
-  struct list child_list = parent->child_threads;
+  struct list child_list = thread_current()->child_threads;
+
+  if (list_empty(&child_list)) {
+    intr_set_level(old_level); 
+    return NULL;
+  }
 
   struct list_elem *e;
-
-  if (list_empty(&child_list))
-    goto done;
 
   for (e = list_begin (&child_list); e != list_end (&child_list); e = list_next (e)) {
     struct thread *t = list_entry (e, struct thread, childelem);
@@ -720,9 +724,9 @@ struct thread *get_thread_by_tid (tid_t tid, struct thread* parent) {
     }
   }
 
-  done:
   intr_set_level(old_level); 
-    return NULL;
+  return NULL;
+  
 }
 
 
