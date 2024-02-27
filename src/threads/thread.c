@@ -576,6 +576,39 @@ get_fd_file (struct thread *t, int fd)
   return elem != NULL ? hash_entry (elem, struct fd_file, hash_elem) : NULL;
 }
 
+void
+free_fds (struct thread* parent)
+{
+
+  hash_destroy(&parent->fd_file_table, fd_destroyer);
+
+  // struct hash_iterator i;
+  // hash_first (&i, &parent->fd_file_table);
+  // while (hash_next (&i))
+  // {
+  //   struct fd_file *fd_file = hash_entry (hash_cur (&i), struct fd_file, hash_elem);
+  //   file_close(fd_file->file);
+  //   hash_delete(&parent->fd_file_table, &fd_file->hash_elem);
+  //   palloc_free_page(fd_file);
+  // }
+
+  struct list_elem *e;
+  for (e = list_begin (&parent->fd_file_closed); e != list_end (&parent->fd_file_closed); e = list_next (e)) {
+    struct fd_file *fd_file = list_entry (e, struct fd_file, list_elem);
+    // file_close(fd_file->file);
+    list_remove(&fd_file->list_elem);
+    palloc_free_page(fd_file);
+  }
+}
+
+void
+fd_destroyer (struct hash_elem *e, void *aux UNUSED)
+{
+  struct fd_file *fd_file = hash_entry (e, struct fd_file, hash_elem);
+  file_close(fd_file->file);
+  palloc_free_page(fd_file);
+}
+
 unsigned
 fd_file_hash (const struct hash_elem *fd_file_, void *aux UNUSED)
 {
@@ -720,7 +753,7 @@ struct thread *get_child_by_tid (tid_t tid) {
   struct thread *t = thread_current();
 
   if (list_empty(&t->child_threads)) {
-    intr_set_level(old_level); 
+    intr_set_level(old_level);
     return NULL;
   }
 
@@ -735,7 +768,7 @@ struct thread *get_child_by_tid (tid_t tid) {
     }
   }
 
-  intr_set_level(old_level); 
+  intr_set_level(old_level);
   return NULL;
 }
 

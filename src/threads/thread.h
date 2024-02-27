@@ -142,6 +142,9 @@ bool fd_file_less (const struct hash_elem *fd1_file_,
 bool fd_closed_less (const struct list_elem *fd1_file_,
                      const struct list_elem *fd2_file_, void *aux UNUSED);
 
+void free_fds (struct thread* parent);
+void fd_destroyer (struct hash_elem *e, void *aux UNUSED);
+
 int add_fd_file (struct thread *t, struct file *f);
 void remove_fd_file (struct thread *t, int fd);
 struct file * get_open_file (struct thread *t, int fd);
