@@ -662,11 +662,11 @@ thread_schedule_tail (struct thread *prev)
      pull out the rug under itself.  (We don't free
      initial_thread because its memory was not obtained via
      palloc().) */
-  if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
-    {
-      ASSERT (prev != cur);
-      palloc_free_page (prev);
-    }
+  // if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
+  //   {
+  //     ASSERT (prev != cur);
+  //     palloc_free_page (prev);
+  //   }
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
