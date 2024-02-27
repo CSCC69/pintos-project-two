@@ -31,10 +31,13 @@ void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
 
+static struct lock file_lock;
+
 void
 syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init(&file_lock);
 }
 
 static void
@@ -162,8 +165,6 @@ exec (const char *cmd_line)
   memcpy(file_name, cmd_line, title_end);
   file_name[title_end] = '\0';
 
-  struct lock file_lock;
-  lock_init(&file_lock);
   lock_acquire(&file_lock);
   struct file* file = filesys_open(file_name);
   if (file == NULL)
@@ -195,11 +196,10 @@ create (const char *file, unsigned initial_size)
     exit(-1);
   if (initial_size < 0 || strcmp(file, "") == 0 || strlen(file) > 14 || strlen(file) == 0 || strcmp(file, "\0") == 0)
     return false;
-  struct lock file_lock;
-  lock_init(&file_lock);
   lock_acquire(&file_lock);
-  return filesys_create (file, initial_size);
+  bool ret = filesys_create (file, initial_size);
   lock_release(&file_lock);
+  return ret;
 }
 
 bool
@@ -207,11 +207,10 @@ remove (const char *file)
 {
   if (file == NULL || strcmp(file, "") == 0)
     exit(-1);
-  struct lock file_lock;
-  lock_init(&file_lock);
   lock_acquire(&file_lock);
-  return filesys_remove (file);
+  bool success = filesys_remove (file);
   lock_release(&file_lock);
+  return success;
 }
 
 int
@@ -219,14 +218,13 @@ open (const char *file)
 {
   if (file == NULL || strcmp(file, "") == 0)
     return -1;
-  struct lock file_lock;
-  lock_init(&file_lock);
   lock_acquire(&file_lock);
   struct file* opened_file = filesys_open(file);
   if (!opened_file)
     return -1;
-  return add_fd_file(thread_current(), opened_file);
+  int fd = add_fd_file(thread_current(), opened_file);
   lock_release(&file_lock);
+  return fd;
 }
 
 int
@@ -235,14 +233,13 @@ filesize (int fd)
   if (fd < 0)
     return -1;
 
-  struct lock file_lock;
-  lock_init(&file_lock);
   lock_acquire(&file_lock);
   struct file* file = get_open_file(thread_current(), fd);
   if (!file)
     return -1;
-  return file_length(file);
+  int file_size = file_length(file);
   lock_release(&file_lock);
+  return file_size;
 }
 
 int
@@ -261,8 +258,6 @@ read (int fd, void *buffer, unsigned size)
     struct file* file = get_open_file(thread_current(), fd);
     if (!file)
       return -1;
-    struct lock file_lock;
-    lock_init(&file_lock);
     lock_acquire(&file_lock);
     off_t bytes_read = file_read(file, buffer, size);
     lock_release(&file_lock);
@@ -291,8 +286,6 @@ write (int fd, const void *buffer, unsigned length)
       struct file* file = get_open_file(thread_current(), fd);
       if (!file)
         return -1;
-      struct lock file_lock;
-      lock_init(&file_lock);
       lock_acquire(&file_lock);
       off_t bytes_written = file_write(file, buffer, length);
       lock_release(&file_lock);
@@ -320,8 +313,6 @@ tell (int fd)
 
   struct file* file = get_open_file(thread_current(), fd);
   if(file) {
-    struct lock file_lock;
-    lock_init(&file_lock);
     lock_acquire(&file_lock);
     off_t next_byte_from_start = file_tell(file);
     lock_release(&file_lock);
@@ -337,8 +328,6 @@ close (int fd)
     return;
 
   struct file* file = get_open_file(thread_current(), fd);
-  struct lock file_lock;
-  lock_init(&file_lock);
   lock_acquire(&file_lock);
   file_close(file);
   lock_release(&file_lock);
