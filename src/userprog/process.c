@@ -115,11 +115,11 @@ process_wait (tid_t child_tid)
 
   sema_down(&child->wait_sema);
 
+  list_remove(&child->childelem);
+
   int exit_status = child->exit_status;
 
-  child->exit_status = -1;
-
-  // list_remove(&child->childelem);
+  palloc_free_page(child);
 
   intr_set_level(old_level);
 
