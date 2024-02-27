@@ -167,7 +167,7 @@ exec (const char *cmd_line)
   file_close(file);
 
   pid_t pid = process_execute (cmd_line);
-  struct thread* thread = get_thread_by_tid(pid);
+  struct thread* thread = get_child_by_tid(pid);
   sema_down(&thread->exec_sema);
 
   return pid;

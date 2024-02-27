@@ -106,7 +106,7 @@ start_process (void *prog_args_)
 int
 process_wait (tid_t child_tid) 
 {
-  struct thread *child = get_thread_by_tid(child_tid);
+  struct thread *child = get_child_by_tid(child_tid);
 
   // if child's parent is not the current thread, or if the child is the current thread, or if the child is NULL
   if(child->parent != thread_current() || thread_current()->tid == child_tid || child == NULL)

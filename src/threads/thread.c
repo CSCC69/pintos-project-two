@@ -96,7 +96,7 @@ thread_init (void)
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
-  init_thread (initial_thread, "main", PRI_DEFAULT, -1);
+  init_thread (initial_thread, "main", PRI_DEFAULT, NULL);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 }
@@ -468,7 +468,6 @@ init_thread (struct thread *t, const char *name, int priority, struct thread *pa
   t->magic = THREAD_MAGIC;
   t->parent = parent;
 
-  list_push_back(&parent->child_threads, &t->childelem);
 
   sema_init(&t->wait_sema, 0);
   sema_init(&t->exec_sema, 0);
@@ -482,6 +481,9 @@ init_thread (struct thread *t, const char *name, int priority, struct thread *pa
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  if (parent != NULL) {
+    list_push_back(&parent->child_threads, &t->childelem);
+  }
   intr_set_level (old_level);
 }
 
@@ -704,29 +706,28 @@ allocate_tid (void)
   return tid;
 }
 
-struct thread *get_thread_by_tid (tid_t tid) {
+struct thread *get_child_by_tid (tid_t tid) {
   enum intr_level old_level = intr_disable();
 
-  struct list child_list = thread_current()->child_threads;
+  struct thread *t = thread_current();
 
-  if (list_empty(&child_list)) {
+  if (list_empty(&t->child_threads)) {
     intr_set_level(old_level); 
     return NULL;
   }
 
   struct list_elem *e;
 
-  for (e = list_begin (&child_list); e != list_end (&child_list); e = list_next (e)) {
-    struct thread *t = list_entry (e, struct thread, childelem);
-    if (t->tid == tid) {
+  for (e = list_begin (&t->child_threads); e != list_end (&t->child_threads); e = list_next (e)) {
+    struct thread *child = list_entry (e, struct thread, childelem);
+    if (child->tid == tid) {
       intr_set_level(old_level);
-      return t;
+      return child;
     }
   }
 
   intr_set_level(old_level); 
   return NULL;
-  
 }
 
 
