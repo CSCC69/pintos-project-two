@@ -34,7 +34,7 @@ void close (int fd);
 static struct lock file_lock;
 
 
- 	
+
 /* Reads a byte at user virtual address UADDR.
    UADDR must be below PHYS_BASE.
    Returns the byte value if successful, -1 if a segfault
@@ -47,7 +47,7 @@ get_user (const uint8_t *uaddr)
        : "=&a" (result) : "m" (*uaddr));
   return result;
 }
- 
+
 /* Writes BYTE to user address UDST.
    UDST must be below PHYS_BASE.
    Returns true if successful, false if a segfault occurred. */
@@ -316,7 +316,7 @@ write (int fd, const void *buffer, unsigned length)
 
       for (unsigned i = remaining; i < length; i += 5)
         putbuf(&buffer[i], 5);
-  
+
       return length;
     }
   else
