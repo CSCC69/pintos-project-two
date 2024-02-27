@@ -133,7 +133,7 @@ free_thread_and_childs (struct thread *parent)
 
   for (e = list_begin (&parent->child_threads); e != list_end (&parent->child_threads); e = list_next (e)) {
     struct thread *child = list_entry (e, struct thread, childelem);
-    free_children(child);
+    free_thread_and_childs(child);
   }
 
   palloc_free_page(parent);
