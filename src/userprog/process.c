@@ -106,17 +106,24 @@ start_process (void *prog_args_)
 int
 process_wait (tid_t child_tid) 
 {
+  enum intr_level old_level = intr_disable();
   struct thread *child = get_child_by_tid(child_tid);
 
   // if child's parent is not the current thread, or if the child is the current thread, or if the child is NULL
-  if(child->parent != thread_current() || thread_current()->tid == child_tid || child == NULL)
+  if(child == NULL || thread_current()->tid == child_tid || child->parent != thread_current())
     return -1;
 
   sema_down(&child->wait_sema);
 
-  list_remove(&child->childelem);
+  int exit_status = child->exit_status;
 
-  return child->exit_status;
+  child->exit_status = -1;
+
+  // list_remove(&child->childelem);
+
+  intr_set_level(old_level);
+
+  return exit_status;
 }
 
 /* Free the current process's resources. */

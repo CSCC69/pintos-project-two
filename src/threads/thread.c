@@ -717,9 +717,10 @@ struct thread *get_child_by_tid (tid_t tid) {
   }
 
   struct list_elem *e;
+  struct thread *child;
 
   for (e = list_begin (&t->child_threads); e != list_end (&t->child_threads); e = list_next (e)) {
-    struct thread *child = list_entry (e, struct thread, childelem);
+    child = list_entry (e, struct thread, childelem);
     if (child->tid == tid) {
       intr_set_level(old_level);
       return child;
