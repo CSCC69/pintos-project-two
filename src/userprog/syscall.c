@@ -4,6 +4,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "list.h"
+#include "stdint.h"
 #include "stdio.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
@@ -15,6 +16,7 @@
 #include "userprog/process.h"
 #include <syscall-nr.h>
 #include <string.h>
+#include <userprog/pagedir.h>
 
 void syscall_handler (struct intr_frame *);
 void halt (void);
@@ -68,17 +70,38 @@ syscall_init (void)
 }
 
 static void
+verify_stack_pointer_word (void *esp) {
+  if (esp == NULL)
+    exit(-1);
+  // Verifies that the stack pointer points to user memory and that it can be dereferenced
+  if (!is_user_vaddr(esp))
+    exit(-1);
+  for (int i = 0; i < 4; i++) {
+    if (get_user((uint8_t *)(esp + i)) == -1)
+      exit(-1);
+  }
+}
+
+static void
 stack_pop (void **syscall_args, int num_args, void *esp)
 {
   for (int i = 0; i < num_args; i++)
     {
-      if (esp >= PHYS_BASE)
-        exit(-1);
-      if (get_user((uint8_t *)esp) == -1)
-        exit(-1);
+      verify_stack_pointer_word(esp);
       syscall_args[i] = esp;
       esp += 4;
     }
+}
+
+static void
+verify_user_pointer_word(char** esp) {
+  char *uaddr = *esp;
+  if (!is_user_vaddr(uaddr))
+    exit(-1);
+  for (int i = 0; i < 4; i++) {
+    if (get_user((uint8_t *)(uaddr + i)) == -1)
+      exit(-1);
+  }
 }
 
 void
@@ -86,11 +109,7 @@ syscall_handler (struct intr_frame *f)
 {
   void *esp = f->esp;
 
-  if (esp >= PHYS_BASE)
-    exit(-1);
-  if (get_user((uint8_t *)esp) == -1)
-    exit(-1);
-
+  verify_stack_pointer_word(esp);
 
   int syscall_number = *(int *)esp;
   esp += sizeof (int);
@@ -111,6 +130,7 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_EXEC:
       stack_pop (&syscall_args[0], 1, esp);
+      verify_user_pointer_word(syscall_args[0]);
       const char *file = *(const char **)syscall_args[0];
       f->eax = exec (file);
       break;
@@ -121,11 +141,13 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_REMOVE:
       stack_pop (&syscall_args[0], 1, esp);
+      verify_user_pointer_word(syscall_args[0]);
       file = *(const char **)syscall_args[0];
       f->eax = remove (file);
       break;
     case SYS_OPEN:
       stack_pop (&syscall_args[0], 1, esp);
+      verify_user_pointer_word(syscall_args[0]);
       file = *(const char **)syscall_args[0];
       f->eax = open (file);
       break;
@@ -147,6 +169,7 @@ syscall_handler (struct intr_frame *f)
     // 2 args
     case SYS_CREATE:
       stack_pop (&syscall_args[0], 2, esp);
+      verify_user_pointer_word(syscall_args[0]);
       file = *(const char **)syscall_args[0];
       unsigned initial_size = *(unsigned *)syscall_args[1];
       f->eax = create (file, initial_size);
@@ -161,6 +184,7 @@ syscall_handler (struct intr_frame *f)
     case SYS_READ:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
+      verify_user_pointer_word(syscall_args[1]);
       void *read_buffer = *(void **)syscall_args[1];
       unsigned size = *(unsigned *)syscall_args[2];
       f->eax = read (fd, read_buffer, size);
@@ -168,6 +192,7 @@ syscall_handler (struct intr_frame *f)
     case SYS_WRITE:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
+      verify_user_pointer_word(syscall_args[1]);
       const char *write_buffer = *(const char **)syscall_args[1];
       unsigned int length = *(unsigned int *)syscall_args[2];
       f->eax = write (fd, write_buffer, length);
