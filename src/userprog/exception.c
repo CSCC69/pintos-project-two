@@ -131,13 +131,7 @@ page_fault (struct intr_frame *f)
 
   /* Count page faults. */
   page_fault_cnt++;
-
-  user = (f->error_code & PF_U) != 0;
-
-  if (!user) {
-    f->eip = (void (*) (void))f->eax;
-    f->eax = 0xFFFFFFFF;
-  } else {
+  
    bool not_present;  /* True: not-present page, false: writing r/o page. */
    bool write;        /* True: access was write, false: access was read. */
    void *fault_addr;  /* Fault address. */
@@ -163,17 +157,24 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
+  if (!user) {
+    f->eip = (void (*) (void))f->eax;
+    f->eax = 0xFFFFFFFF;
+    return;
+  } 
+
+  if (pagedir_get_page(thread_current()->pagedir, fault_addr) == NULL)
+   exit(-1);
+
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  /*printf ("Page fault at %p: %s error %s page in %s context.\n",
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
-          user ? "user" : "kernel");*/
+          user ? "user" : "kernel");
 
-  exit(-1);
-  }
-
+  kill(f);
 }
 
