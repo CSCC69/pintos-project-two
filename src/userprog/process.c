@@ -386,7 +386,8 @@ load (const struct prog_args *prog_args, void (**eip) (void), void **esp)
     file_close(file);
   //TODO: close the file when the process dies
   t->executable = file;
-  file_deny_write(file);
+  if (file)
+    file_deny_write(file);
   return success;
 }
 
