@@ -330,6 +330,6 @@ close (int fd)
   struct file* file = get_open_file(thread_current(), fd);
   lock_acquire(&file_lock);
   file_close(file);
-  lock_release(&file_lock);
   remove_fd_file(thread_current(), fd);
+  lock_release(&file_lock);
 }
