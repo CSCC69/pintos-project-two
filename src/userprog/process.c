@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include "list.h"
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
@@ -19,6 +20,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+
 
 static thread_func start_process NO_RETURN;
 static bool load (const struct prog_args *prog_args, void (**eip) (void), void **esp);
@@ -51,7 +53,7 @@ process_execute (const char *file_name)
     prog_args->arg_count++;
   }
 
-  prog_args->name = palloc_get_page(0);
+  prog_args->name = malloc(16 * sizeof(char));
   if (prog_args->name == NULL)
     return TID_ERROR;
   strlcpy(prog_args->name, prog_args->args[0], PGSIZE);
@@ -78,11 +80,11 @@ start_process (void *prog_args_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (prog_args, &if_.eip, &if_.esp);
-  sema_up(&thread_current()->exec_sema);
-  /* If load failed, quit. */
-  palloc_free_page (prog_args->name);
+  free (prog_args->name);
   palloc_free_page(prog_args->args);
   palloc_free_page(prog_args);
+  sema_up(&thread_current()->exec_sema);
+  /* If load failed, quit. */
   if (!success)
     thread_exit ();
 
