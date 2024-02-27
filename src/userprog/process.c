@@ -135,6 +135,7 @@ free_thread_and_childs (struct thread *parent)
     struct thread *child = list_entry (e, struct thread, childelem);
     if (child->status == THREAD_DYING) {
       list_remove(&child->allelem);
+      free_fds(child);
       free_thread_and_childs(child);
     } else {
       child->parent = NULL;
@@ -152,6 +153,28 @@ free_childs (struct thread* parent)
     struct thread *child = list_entry (e, struct thread, childelem);
     list_remove(&child->childelem);
     free_thread_and_childs(child);
+  }
+}
+
+void
+free_fds (struct thread* parent)
+{
+  struct hash_iterator i;
+  hash_first (&i, &parent->fd_file_table);
+  while (hash_next (&i))
+  {
+    struct fd_file *fd_file = hash_entry (hash_cur (&i), struct fd_file, hash_elem);
+    file_close(fd_file->file);
+    hash_delete(&parent->fd_file_table, &fd_file->hash_elem);
+    palloc_free_page(fd_file);
+  }
+
+  struct list_elem *e;
+  for (e = list_begin (&parent->fd_file_closed); e != list_end (&parent->fd_file_closed); e = list_next (e)) {
+    struct fd_file *fd_file = list_entry (e, struct fd_file, list_elem);
+    // file_close(fd_file->file);
+    list_remove(&fd_file->list_elem);
+    palloc_free_page(fd_file);
   }
 }
 
