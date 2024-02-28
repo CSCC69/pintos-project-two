@@ -185,7 +185,7 @@ syscall_handler (struct intr_frame *f)
     case SYS_READ:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
-verify_user_pointer_word(syscall_args[1]);
+      verify_user_pointer_word(syscall_args[1]);
       void *read_buffer = *(void **)syscall_args[1];
       unsigned size = *(unsigned *)syscall_args[2];
       f->eax = read (fd, read_buffer, size);
@@ -193,7 +193,7 @@ verify_user_pointer_word(syscall_args[1]);
     case SYS_WRITE:
       stack_pop (&syscall_args[0], 3, esp);
       fd = *(int *)syscall_args[0];
-verify_user_pointer_word(syscall_args[1]);
+      verify_user_pointer_word(syscall_args[1]);
       const char *write_buffer = *(const char **)syscall_args[1];
       unsigned int length = *(unsigned int *)syscall_args[2];
       f->eax = write (fd, write_buffer, length);

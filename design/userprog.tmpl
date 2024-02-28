@@ -72,7 +72,7 @@ for this instance. Each of these pointers are stored in a "fd_file" struct with 
 with the file descriptor as the key.
 
 This fd_file_table is stored per process, meaning that file descriptors are only unique within a single process, not the entire OS. For example, two different processes can have different open
-files associated with the same file descriptor.
+files associated with the same file descriptor number.
 
 ---- ALGORITHMS ----
 
@@ -104,21 +104,26 @@ split partway between two pages.
 
 With 2 bytes of data, the number is the same - one byte in each page.
 
+In our implementation, there is no further improvement.
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
 
 SYS_WAIT is handled as normal initially through our syscall_handler. We then call wait. If the pid is not valid (< 0) we return -1.
 Otherwise, we return the value of process_wait().
 
-We get the child via tid by iterating over the thread's child_list.
+We get the child's thread struct from the tid by iterating over the thread's child_list.
 
-In process_wait(), we check if child's parent is not the current thread, or if the child is the current thread, or if the child is NULL.
+In process_wait(), we check if child's parent is not the current thread, if the child is the current thread, or if the child is NULL.
 If so, we just return -1 since we cannot wait here.
 
-We try to sema_down/acquire a wait semaphore, as it will become available when the child releases its semaphore on exit.
+When a new thread is created, it holds a semaphore called "exec_sema" that is initialized to a value of 0, meaning that no threads can acquire/sema down it.
+When we wait a thread, we attempt to acquire the child's wait semaphore, which blocks until the child ups its semaphore on exit.
 
-We remove the child from the thread's list and then free it and its childrens allocated resources, and return its exit status.
-
+Once we down the wait semaphore, we remove the child from the thread's child list and then free it and it's dying childrens allocated resources, and return its exit status. 
+We remove the child from the thread's child list because we need to ensure a child can only be waited once since now, if it is waited again, it will not be found in the child list
+and we will return -1 immediately, as desired. 
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -175,11 +180,10 @@ In process_wait we call free_thread_and_childs() which will free the fd_file str
 destroy the respective child's hash table for children in the thread's list that are dying.
 Then it will recurse and do the same for the children.
 For the threads that are not dying, we set their parent to null.
-In the case that the parent exits without waiting,
+In the case that the parent exits without waiting, 
 the children are iterated over and then we perform the same process on children that aren't running.
-Whenever a thread exits, we also check if the parent has exited and if it has then we free self and children
-that are dying. If the parent hasn't exited we leave the thread struct intact so the parent can sequentially
-wait on it.
+Whenever a thread exits, we also check if the parent has exited(if the parent is null) and if it has then we free self and children
+that are dying. If the parent hasn't exited we leave the thread struct intact so the parent can wait on it.
 
 ---- RATIONALE ----
 
@@ -200,6 +204,8 @@ that a process can have open, like would be the case with an array. It also allo
 to use a linked list to store this mapping.
 
 Further advantages to our design include reusing file descriptors once they're closed, meaning we can assign file descriptors sequentially and not have to perform calculations or casts to get a file descriptor.
+
+A disadvantage to our design that we contemplated is that storing closed file descriptors to our closed fd list is not O(1) 
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
