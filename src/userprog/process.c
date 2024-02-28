@@ -189,8 +189,8 @@ process_exit (void)
   /* Close the executable file held open to deny writes to
      running program code */
   //TODO: maybe we need to close the executable here -- check if its closed somewhere else
-  // if (cur->executable)
-  //   file_close(cur->executable);
+  if (cur->executable)
+    file_close(cur->executable);
 
 }
 

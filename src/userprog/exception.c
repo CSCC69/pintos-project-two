@@ -165,7 +165,7 @@ page_fault (struct intr_frame *f)
   } 
 
   //TODO: maybe remove phys base check
-  if (fault_addr == PHYS_BASE || (thread_current()->pagedir, fault_addr) == NULL)
+  if (fault_addr >= PHYS_BASE || (thread_current()->pagedir, fault_addr) == NULL)
    exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
