@@ -74,8 +74,7 @@ kernel is preemptable, and these interruptions can introduce bugs and other issu
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-struct thread
-  {
+Added struct thread:
 
     int fd_max;
     struct hash fd_file_table;
@@ -92,7 +91,6 @@ struct thread
 
     struct list_elem childelem;
     struct list child_threads;
-  };
 
 fd_max, fd_file_table, fd_file_closed, and is_fd_table_initialized are used to initialize and properly work the
 fd mapping and lookup system. See the fd system for more details.
@@ -110,13 +108,12 @@ childelem is a list element for child_threads.
 child_threads is a list of threads using member childelem that store the child threads of this parent thread.
 
 
-struct fd_file
-  {
+Added struct fd_file
     int fd;
     struct file *file;
     struct hash_elem hash_elem;
     struct list_elem list_elem;
-  };
+
 
 fd_file is a struct that associates an fd with an open file. It has a hash_elem and a list_elem due to the fd mapping and lookup
 system. See the description of the fd system for more details.
