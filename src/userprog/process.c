@@ -523,10 +523,16 @@ setup_stack (void **esp, const struct prog_args *prog_args)
         {
           *esp = PHYS_BASE;
           int arg_count = prog_args->arg_count;
+          int arg_size_bytes = 0;
           // Arguments, in reverse order
           for (int i = arg_count - 1; i >= 0; i--) {
             char *argument = prog_args->args[i];
             int arg_len = strlen(argument);
+            arg_size_bytes += arg_len;
+
+            if (arg_size_bytes > 4096)
+              goto failure;
+
             (*esp) -= (arg_len * sizeof(char)) + 1;
             memcpy(*esp, argument, arg_len);
           }
@@ -542,13 +548,23 @@ setup_stack (void **esp, const struct prog_args *prog_args)
 
           // Addresses of arguments on stack
           void *arg_pos = PHYS_BASE;
+          arg_size_bytes = 0;
+          
           for (int i = prog_args->arg_count - 1; i >= 0; i--) {
             char *argument = prog_args->args[i];
             int arg_len = strlen(argument);
             arg_pos -= (arg_len + 1) * sizeof(char);
+
+            arg_size_bytes += sizeof(char*);
+            if (arg_size_bytes > 4094)
+              goto failure;
+
             *esp -= sizeof(char*);
             memcpy(*esp, &arg_pos, sizeof(char*));
           }
+
+          if (*esp - 12 < PHYS_BASE - 4096)
+            goto failure;
 
           // Address of first argument (argv)
           void *argv = *esp;
@@ -567,8 +583,12 @@ setup_stack (void **esp, const struct prog_args *prog_args)
           //hex_dump((uintptr_t)PHYS_BASE-64, *esp - (uint32_t)*esp % 64, 64, true);
           ASSERT(((uint32_t)*esp) % 4 == 0);
         }
-      else
-        palloc_free_page (kpage);
+      else 
+        {
+          failure:
+          palloc_free_page (kpage);
+          return false;
+        }
     }
   return success;
 }

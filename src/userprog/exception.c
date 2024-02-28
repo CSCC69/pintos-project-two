@@ -164,7 +164,7 @@ page_fault (struct intr_frame *f)
     return;
   } 
 
-  if (fault_addr >= PHYS_BASE || pagedir_get_page(thread_current()->pagedir, fault_addr) == NULL)
+  if (fault_addr >= PHYS_BASE || (void*)pagedir_get_page(thread_current()->pagedir, fault_addr) == NULL)
    exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
