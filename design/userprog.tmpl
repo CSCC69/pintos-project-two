@@ -54,6 +54,9 @@ kernel is preemptable, and these interruptions can introduce bugs and other issu
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
 
+#1. Customizability. Having the shell handle executable name and argument passing allows users to customize how commands are interpreted, for example, creating custom shorthand arguments.
+#2. Increased complexity. Having the shell handle executable name and argument passing also allows for more features for processing commands like piping, redirecting output, and executing multiple programs.
+
                  SYSTEM CALLS
                  ============
 
