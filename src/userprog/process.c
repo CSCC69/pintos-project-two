@@ -20,6 +20,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 
 static thread_func start_process NO_RETURN;
@@ -110,26 +111,27 @@ start_process (void *prog_args_)
 int
 process_wait (tid_t child_tid)
 {
-  enum intr_level old_level = intr_disable();
   struct thread *child = get_child_by_tid(child_tid);
 
-  // if child's parent is not the current thread, or if the child is the current thread, or if the child is NULL
+  enum intr_level old_level = intr_disable();
+
+  /* If the child is NULL, or if the child's parent is not the current thread,
+     or if the child is the current thread, return an invalid TID */
   if(child == NULL || thread_current()->tid == child_tid || child->parent != thread_current())
-    return -1;
+    return TID_ERROR;
 
   sema_down(&child->wait_sema);
-
   list_remove(&child->childelem);
-
   int exit_status = child->exit_status;
 
   free_thread_and_childs(child);
 
   intr_set_level(old_level);
-
   return exit_status;
 }
 
+/* Frees the parent thread, and recursively frees file descriptors and thread structs of 
+   dying child threads, or sets parent to NULL if not dying. */
 void
 free_thread_and_childs (struct thread *parent)
 {
@@ -149,6 +151,7 @@ free_thread_and_childs (struct thread *parent)
   palloc_free_page(parent);
 }
 
+/* Recursively frees child threads of parent */
 void
 free_childs (struct thread* parent)
 {
@@ -188,7 +191,6 @@ process_exit (void)
 
   /* Close the executable file held open to deny writes to
      running program code */
-  //TODO: maybe we need to close the executable here -- check if its closed somewhere else
   if (cur->executable)
     file_close(cur->executable);
 
@@ -393,9 +395,10 @@ load (const struct prog_args *prog_args, void (**eip) (void), void **esp)
   if (!success)
     file_close(file);
   else if (file)
-    file_deny_write(file);
-  //TODO: close the file when the process dies
-  t->executable = file;
+    {
+      file_deny_write(file);
+      t->executable = file;
+    }
   return success;
 }
 
@@ -524,6 +527,7 @@ setup_stack (void **esp, const struct prog_args *prog_args)
           *esp = PHYS_BASE;
           int arg_count = prog_args->arg_count;
           int arg_size_bytes = 0;
+
           // Arguments, in reverse order
           for (int i = arg_count - 1; i >= 0; i--) {
             char *argument = prog_args->args[i];
@@ -563,6 +567,7 @@ setup_stack (void **esp, const struct prog_args *prog_args)
             memcpy(*esp, &arg_pos, sizeof(char*));
           }
 
+          // Check if the stack page is full
           if (*esp - 12 < PHYS_BASE - 4096)
             goto failure;
 
@@ -578,10 +583,6 @@ setup_stack (void **esp, const struct prog_args *prog_args)
           // Return address (null)
           *esp -= 1 * sizeof(void (*)(void));
           memset(*esp, 0, sizeof(void (*)(void)));
-
-          //TODO: remove, for debugging
-          //hex_dump((uintptr_t)PHYS_BASE-64, *esp - (uint32_t)*esp % 64, 64, true);
-          ASSERT(((uint32_t)*esp) % 4 == 0);
         }
       else 
         {

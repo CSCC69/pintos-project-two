@@ -50,19 +50,6 @@ get_user (const uint8_t *uaddr)
   return result;
 }
 
-/* Writes BYTE to user address UDST.
-   UDST must be below PHYS_BASE.
-   Returns true if successful, false if a segfault occurred. */
-//TODO: delete
-static bool
-put_user (uint8_t *udst, uint8_t byte)
-{
-  int error_code;
-  asm ("movl $1f, %0; movb %b2, %1; 1:"
-       : "=&a" (error_code), "=m" (*udst) : "q" (byte));
-  return error_code != -1;
-}
-
 void
 syscall_init (void)
 {
@@ -70,19 +57,22 @@ syscall_init (void)
   lock_init(&file_lock);
 }
 
+/* Verifies that the stack pointer esp points to user memeory, and that 4 bytes can 
+   be dereferenced without page fault */
 static void
 verify_stack_pointer_word (void *esp) {
   if (esp == NULL)
     exit(-1);
-  // Verifies that the stack pointer points to user memory and that it can be dereferenced
   if (!is_user_vaddr(esp))
     exit(-1);
+
   for (int i = 0; i < 4; i++) {
     if (get_user((uint8_t *)(esp + i)) == -1)
       exit(-1);
   }
 }
 
+/* Saves the starting address of each of num_args argument on the stack, starting at esp */
 static void
 stack_pop (void **syscall_args, int num_args, void *esp)
 {
@@ -94,6 +84,8 @@ stack_pop (void **syscall_args, int num_args, void *esp)
     }
 }
 
+/* Verifies that a user-provided address is in user memory and can be dereferenced 
+   successfully without page fault */
 static void
 verify_user_pointer_word(char** esp) {
   char *uaddr = *esp;
@@ -203,12 +195,14 @@ syscall_handler (struct intr_frame *f)
     }
 }
 
+/* Kernel implementation of the halt syscall */
 void
 halt (void)
 {
   shutdown_power_off ();
 }
 
+/* Kernel implementation of the exit syscall*/
 void
 exit (int status)
 {
@@ -218,6 +212,7 @@ exit (int status)
   thread_exit ();
 }
 
+/* Kernel implementation of the exec syscall*/
 pid_t
 exec (const char *cmd_line)
 {
@@ -245,7 +240,7 @@ exec (const char *cmd_line)
   return pid;
 }
 
-// TODO pid_t tid_t idk
+/* Kernel implementation of the wait syscall */
 int
 wait (pid_t pid)
 {
@@ -254,20 +249,22 @@ wait (pid_t pid)
   return process_wait (pid);
 }
 
+/* Kernel implementation of the create syscall */
 bool
 create (const char *file, unsigned initial_size)
 {
-  //TODO: FIX IT
   if(file == NULL)
     exit(-1);
-  if (initial_size < 0 || strcmp(file, "") == 0 || strlen(file) > 14 || strlen(file) == 0 || strcmp(file, "\0") == 0)
+  if (initial_size < 0 || strcmp(file, "") == 0 || strlen(file) > 14 || strlen(file) == 0)
     return false;
+
   lock_acquire(&file_lock);
   bool ret = filesys_create (file, initial_size);
   lock_release(&file_lock);
   return ret;
 }
 
+/* Kernel implementation of the remove syscall */
 bool
 remove (const char *file)
 {
@@ -279,6 +276,7 @@ remove (const char *file)
   return success;
 }
 
+/* Kernel implementation of the open syscall */
 int
 open (const char *file)
 {
@@ -293,6 +291,7 @@ open (const char *file)
   return fd;
 }
 
+/* Kernel implementation of the filesize syscall */
 int
 filesize (int fd)
 {
@@ -308,6 +307,7 @@ filesize (int fd)
   return file_size;
 }
 
+/* Kernel implementation of the read syscall */
 int
 read (int fd, void *buffer, unsigned size)
 {
@@ -331,6 +331,7 @@ read (int fd, void *buffer, unsigned size)
   }
 }
 
+/* Kernel implementation of the write syscall */
 int
 write (int fd, const void *buffer, unsigned length)
 {
@@ -359,6 +360,7 @@ write (int fd, const void *buffer, unsigned length)
     }
 }
 
+/* Kernel implementation of the seek syscall */
 void
 seek (int fd, unsigned position)
 {
@@ -371,6 +373,7 @@ seek (int fd, unsigned position)
   file_seek(file, position);
 }
 
+/* Kernel implementation of the tell syscall */
 unsigned
 tell (int fd)
 {
@@ -387,6 +390,7 @@ tell (int fd)
   return 0;
 }
 
+/* Kernel implementation of the close syscall */
 void
 close (int fd)
 {

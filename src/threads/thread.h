@@ -97,22 +97,21 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    /* FD setup */
-    struct hash fd_file_table;
-    struct list fd_file_closed;
-    int fd_max;
+    int fd_max;                         /* Highest assigned file descriptor */
+    struct hash fd_file_table;          /* Map of file descriptors to open files */
+    struct list fd_file_closed;         /* Closed fd_file structs for reuse */
+    bool is_fd_table_initialized;       /* If the file descriptor hashtable is initialized */ 
 
-    struct thread *parent;
+    struct thread *parent;              /* Parent thread */
 
-    struct semaphore wait_sema;
-    struct semaphore exec_sema;
+    struct semaphore wait_sema;         /* Semaphore for parent threads to wait on children */
 
-    bool is_fd_table_initialized;
+    struct semaphore exec_sema;         /* Semaphore forcing "exec" to wait for program load/failure */
 
-    struct file* executable;
+    struct file* executable;            /* The executable of a user process running on this thread */
 
-    struct list_elem childelem;
-    struct list child_threads;
+    struct list_elem childelem;         /* List element for child_threads */
+    struct list child_threads;          /* Child threads */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -123,6 +122,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+/* An instance of an opened file, associated with a file descriptor */
 struct fd_file
   {
     int fd;

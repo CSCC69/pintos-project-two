@@ -12,6 +12,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "userprog/process.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -69,7 +71,7 @@ static void init_thread (struct thread *, const char *name, int priority, struct
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
-void thread_schedule_tail (struct thread *prev);
+void thread_schedule_tail (void);
 static tid_t allocate_tid (void);
 
 /* Initializes the threading system by transforming the code
@@ -582,25 +584,15 @@ free_fds (struct thread* t)
 
   hash_destroy(&t->fd_file_table, fd_destroyer);
 
-  // struct hash_iterator i;
-  // hash_first (&i, &parent->fd_file_table);
-  // while (hash_next (&i))
-  // {
-  //   struct fd_file *fd_file = hash_entry (hash_cur (&i), struct fd_file, hash_elem);
-  //   file_close(fd_file->file);
-  //   hash_delete(&parent->fd_file_table, &fd_file->hash_elem);
-  //   palloc_free_page(fd_file);
-  // }
-
   struct list_elem *e;
   for (e = list_begin (&t->fd_file_closed); e != list_end (&t->fd_file_closed); e = list_next (e)) {
     struct fd_file *fd_file = list_entry (e, struct fd_file, list_elem);
-    // file_close(fd_file->file);
     list_remove(&fd_file->list_elem);
     free(fd_file);
   }
 }
 
+/* Frees the file struct assoicated with a fd_file struct, and then frees the fd_file in a hash map */
 void
 fd_destroyer (struct hash_elem *e, void *aux UNUSED)
 {
@@ -609,13 +601,15 @@ fd_destroyer (struct hash_elem *e, void *aux UNUSED)
   free(fd_file);
 }
 
+/* Computes the hash of a file descriptor for lookup & insertion of fd_file structs in a hash map */
 unsigned
 fd_file_hash (const struct hash_elem *fd_file_, void *aux UNUSED)
 {
   const struct fd_file *fd_file = hash_entry (fd_file_, struct fd_file, hash_elem);
-  return hash_bytes (&fd_file->fd, sizeof fd_file->fd);
+  return hash_int(fd_file->fd);
 }
 
+/* Compares file descriptors associated with fd_file structs */
 bool
 fd_closed_less (const struct list_elem *fd1_file_, const struct list_elem *fd2_file_,
                 void *aux UNUSED)
@@ -623,10 +617,11 @@ fd_closed_less (const struct list_elem *fd1_file_, const struct list_elem *fd2_f
   const struct fd_file *fd1_file = list_entry (fd1_file_, struct fd_file, list_elem);
   const struct fd_file *fd2_file = list_entry (fd2_file_, struct fd_file, list_elem);
 
-  // we want to insert in ascending order
+  // To insert in ascending order
   return fd1_file->fd < fd2_file->fd;
 }
 
+/* Compares file descriptors associated with fd_file structs */
 bool
 fd_file_less (const struct hash_elem *fd1_file_, const struct hash_elem *fd2_file_,
          void *aux UNUSED)
@@ -634,6 +629,7 @@ fd_file_less (const struct hash_elem *fd1_file_, const struct hash_elem *fd2_fil
   const struct fd_file *fd1_file = hash_entry (fd1_file_, struct fd_file, hash_elem);
   const struct fd_file *fd2_file = hash_entry (fd2_file_, struct fd_file, hash_elem);
 
+  // To insert in ascending order
   return fd1_file->fd < fd2_file->fd;
 }
 
@@ -681,7 +677,7 @@ next_thread_to_run (void)
    After this function and its caller returns, the thread switch
    is complete. */
 void
-thread_schedule_tail (struct thread *prev)
+thread_schedule_tail ()
 {
   struct thread *cur = running_thread ();
 
@@ -697,17 +693,6 @@ thread_schedule_tail (struct thread *prev)
   /* Activate the new address space. */
   process_activate ();
 #endif
-
-  /* If the thread we switched from is dying, destroy its struct
-     thread.  This must happen late so that thread_exit() doesn't
-     pull out the rug under itself.  (We don't free
-     initial_thread because its memory was not obtained via
-     palloc().) */
-  // if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
-  //   {
-  //     ASSERT (prev != cur);
-  //     palloc_free_page (prev);
-  //   }
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
@@ -730,7 +715,7 @@ schedule (void)
 
   if (cur != next)
     prev = switch_threads (cur, next);
-  thread_schedule_tail (prev);
+  thread_schedule_tail ();
 }
 
 /* Returns a tid to use for a new thread. */

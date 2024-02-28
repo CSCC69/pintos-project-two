@@ -3,10 +3,11 @@
 
 #include "threads/thread.h"
 
+/* The arguments for a process */
 struct prog_args {
-  char *name;
-  char **args;
-  int arg_count;
+  char *name;    /* The executable's name */
+  char **args;   /* The executable's arguments */
+  int arg_count; /* The number of arguments */
 };
 
 tid_t process_execute (const char *file_name);
