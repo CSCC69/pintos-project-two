@@ -156,7 +156,9 @@ free_childs (struct thread* parent)
   for (e = list_begin (&parent->child_threads); e != list_end (&parent->child_threads); e = list_next (e)) {
     struct thread *child = list_entry (e, struct thread, childelem);
     list_remove(&child->childelem);
-    free_thread_and_childs(child);
+    if(child->status == THREAD_DYING) {
+      free_thread_and_childs(child);
+    }
   }
 }
 
