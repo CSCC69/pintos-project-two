@@ -79,6 +79,19 @@ files associated with the same file descriptor.
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
+We read and write user data from the kernel via read() and write(). These are called via syscall_handler as usual.
+
+For read, we check if the fd is valid and if it corresponds to STDIN. If so, then we put the user input to a buffer
+via a loop. Afterwards we return the size that we put.
+
+Otherwise, we have an open file. We use our file descriptor setup to get the open file correlated with the fd for the current
+thread, and then read the file to the buffer. When we read we use a lock because we cannot call filesys code from >= two places at once.
+
+For write, we check if the fd is valid and if it corresponds to STDOUT. If so, we write to the buffer using putbuf and a loop.
+
+Otherwise, we have an open file that we access via our file descriptor. We then write to the buffer under a lock for the same reason as read.
+
+
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
 >> and the greatest possible number of inspections of the page table
