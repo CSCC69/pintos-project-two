@@ -257,7 +257,7 @@ create (const char *file, unsigned initial_size)
 {
   if (file == NULL)
     exit (-1);
-  if (initial_size < 0 || strcmp (file, "") == 0 || strlen (file) > 14
+  if (strcmp (file, "") == 0 || strlen (file) > 14
       || strlen (file) == 0)
     return false;
 
@@ -340,7 +340,7 @@ read (int fd, void *buffer, unsigned size)
 int
 write (int fd, const void *buffer, unsigned length)
 {
-  if (fd < 0 || buffer == NULL || length < 0)
+  if (fd < 0 || buffer == NULL)
     return -1;
 
   if (fd == STDOUT_FILENO)
@@ -369,7 +369,7 @@ write (int fd, const void *buffer, unsigned length)
 void
 seek (int fd, unsigned position)
 {
-  if (fd < 0 || position < 0)
+  if (fd < 0)
     return;
 
   struct file *file = get_open_file (thread_current (), fd);
