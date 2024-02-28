@@ -8,9 +8,9 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Nathanael Robbins <nate.robbinss@mail.utoronto.ca>
+Lucas Ilea <lucas.ilea@mail.utoronto.ca>
+Louis Ren <louis.ren@mail.utoronto.ca>
 
 ---- PRELIMINARIES ----
 
@@ -36,9 +36,19 @@ FirstName LastName <email@domain.example>
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+Argument parsing is implemented by traversing the initial program command line and using strtok_r to parse the arguments into an array.
+Then, we iterate backwards through that array and write them onto the stack in that order.
+
+To avoid overflowing the stack page, we keep track of the length (in bytes) of each argument before we push it onto the stack. If there is no more stack space, we free the stack page and return false.
+The same logic is used when pushing the addresses of each argument, and for the remaining stack arguments.
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
+
+Pintos implements strtok_r() but not strtok() because strtok_r() is a reentrant version of strtok().
+This means that the function can be interrupted, resumed, and called again by different threads. This is especially important when writing kernel-level code in Pintos as the Pintos
+kernel is preemptable, and these interruptions can introduce bugs and other issues when using the regular strtok() that uses global state to keep track of the string position.
 
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
@@ -57,6 +67,13 @@ FirstName LastName <email@domain.example>
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
+File descriptors are associated with each instance of an open file. When the open syscall is called, the "filesys" code locates the inode for the file, and returns a pointer to a "file" struct
+for this instance. Each of these pointers are stored in a "fd_file" struct with an associated file descriptor. Then, the "fd_file" struct is inserted into the "fd_file_table" hash table 
+with the file descriptor as the key.
+
+This fd_file_table is stored per process, meaning that file descriptors are only unique within a single process, not the entire OS. For example, two different processes can have different open 
+files associated with the same file descriptor.
+
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
@@ -68,6 +85,11 @@ FirstName LastName <email@domain.example>
 >> (e.g. calls to pagedir_get_page()) that might result?  What about
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
+
+To copy a full page of data from a user address into the kernel, there will be at most 2 calls to pagedir_get_page. This is because the 4096 bytes of data can be entirely within 1 page, or
+split partway between two pages.
+
+With 2 bytes of data, the number is the same - one byte in each page.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
@@ -86,12 +108,31 @@ FirstName LastName <email@domain.example>
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+To avoid cluttering up system calls with error handling, and the need to free temporarily allocated resources during the execution of a system call, we simply verify all user-specified addresses *before*
+calling into the system call implementation. If any addresses are invalid, the user program will exit.
+
+As an example, consider the following call to the "create" system call.
+create(0x12345678, 5)
+
+After retrieving the stack pointer esp from the interrupt frame, we call verify_stack_pointer_word to ensure that the stack pointer (and 3 bytes past it) are valid. In this case,
+only the address stored at esp is invalid, so we extract the system call number and continue.
+
+The "create" system call takes 2 arguments, so we call stack_pop, verify 4 consecutive stack addresses, and place the esp value for the start of each argument in an array, to be dereferenced later.
+
+To extract the address storing the file name, we call verify_user_pointer_word. Since the address 0x12345678 causes a page fault when dereferenced (handling described in B9), we call exit()
+and do not being system call execution.
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+When a new thread is created, it holds a semaphore called "exec_sema" that is initialized to a value of 0, meaning that no threads can acquire/sema down it.
+When the "exec" system call has finished calling process_execute, it then attempts to acquire "exec_sema" from the newly executed thread.
+This will block the "exec" system call until the thread being created releases/calls sema up on "exec_sema", which it does once it has either successfully loaded or failed to load the executable.
+Then, the "exec" system call will be able to acquire the semaphore, and finally return the PID.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -105,11 +146,25 @@ FirstName LastName <email@domain.example>
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+We chose to safely access user memory with the page fault approach. When a syscall is triggered, we verify both that the stack pointer itself is valid
+(in user memory and dereferenceable without page fault), and then that the user memory address stored at that stack address is valid (in user memory and dereferenceable 
+without page fault, using the provided get_user function.) If a page fault is triggered, the page fault handler returns -1, which we detect and then call exit().
+
+We verify all arguments before calling our syscall implementations, which has many advantages described in question B6.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+The advantage of our design for file descriptors, which is storing the fd->open file mappings in a hash table, means that we don't need to impose a limit on the maximum number of possible file descriptors
+that a process can have open, like would be the case with an array. It also allows for O(1) time lookup for open files using the file descriptor as a key, which wouldn't be possible if we were
+to use a linked list to store this mapping.
+
+Further advantages to our design include reusing file descriptors once they're closed, meaning we can assign file descriptors sequentially and not have to perform calculations or casts to get a file descriptor.
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+We did not change this mapping.
 
                SURVEY QUESTIONS
                ================
