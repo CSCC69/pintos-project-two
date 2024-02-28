@@ -30,6 +30,14 @@ Louis Ren <louis.ren@mail.utoronto.ca>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct prog_args {
+  char *name;
+  char **args;
+  int arg_count;
+};
+
+A struct to hold the name, arguments, and argument count of a program.
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
@@ -65,6 +73,58 @@ kernel is preemptable, and these interruptions can introduce bugs and other issu
 >> B1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+
+struct thread
+  {
+
+    int fd_max;
+    struct hash fd_file_table;
+    struct list fd_file_closed;
+    bool is_fd_table_initialized;
+
+    struct thread *parent;
+
+    struct semaphore wait_sema;
+
+    struct semaphore exec_sema;
+
+    struct file* executable;
+
+    struct list_elem childelem;
+    struct list child_threads;
+  };
+
+fd_max, fd_file_table, fd_file_closed, and is_fd_table_initialized are used to initialize and properly work the
+fd mapping and lookup system. See the fd system for more details.
+
+parent is the parent thread of this thread.
+
+wait_sema is a sema for parent threads to wait on children.
+
+exec_sema is used to make "exec" system calls only return once the program is loaded or failed.
+
+executable is just the executable file of a user process that is currently running on the thread.
+
+childelem is a list element for child_threads.
+
+child_threads is a list of threads using member childelem that store the child threads of this parent thread.
+
+
+struct fd_file
+  {
+    int fd;
+    struct file *file;
+    struct hash_elem hash_elem;
+    struct list_elem list_elem;
+  };
+
+fd_file is a struct that associates an fd with an open file. It has a hash_elem and a list_elem due to the fd mapping and lookup
+system. See the description of the fd system for more details.
+
+static struct lock file_lock;
+
+file_lock is to make sure that we do not use filesys code more than once at a time.
+
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
@@ -124,9 +184,9 @@ If so, we just return -1 since we cannot wait here.
 When a new thread is created, it holds a semaphore called "exec_sema" that is initialized to a value of 0, meaning that no threads can acquire/sema down it.
 When we wait a thread, we attempt to acquire the child's wait semaphore, which blocks until the child ups its semaphore on exit.
 
-Once we down the wait semaphore, we remove the child from the thread's child list and then free it and it's dying childrens allocated resources, and return its exit status. 
+Once we down the wait semaphore, we remove the child from the thread's child list and then free it and it's dying childrens allocated resources, and return its exit status.
 We remove the child from the thread's child list because we need to ensure a child can only be waited once since now, if it is waited again, it will not be found in the child list
-and we will return -1 immediately, as desired. 
+and we will return -1 immediately, as desired.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -183,7 +243,7 @@ In process_wait we call free_thread_and_childs() which will free the fd_file str
 destroy the respective child's hash table for children in the thread's list that are dying.
 Then it will recurse and do the same for the children.
 For the threads that are not dying, we set their parent to null.
-In the case that the parent exits without waiting, 
+In the case that the parent exits without waiting,
 the children are iterated over and then we perform the same process on children that aren't running.
 Whenever a thread exits, we also check if the parent has exited(if the parent is null) and if it has then we free self and children
 that are dying. If the parent hasn't exited we leave the thread struct intact so the parent can wait on it.
