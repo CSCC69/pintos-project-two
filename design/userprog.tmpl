@@ -205,7 +205,7 @@ to use a linked list to store this mapping.
 
 Further advantages to our design include reusing file descriptors once they're closed, meaning we can assign file descriptors sequentially and not have to perform calculations or casts to get a file descriptor.
 
-A disadvantage to our design that we contemplated is that storing closed file descriptors to our closed fd list is not O(1) 
+A disadvantage to our design that we contemplated is that storing closed file descriptors to our closed fd list is not O(1) however we chose our implementation because it doesn't impose a limit on open file descriptors.
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
